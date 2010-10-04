@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<EditTextPreference android:key="pref_target_url" android:title="Target URL" android:defaultValue="http://qkhack.appspot.com/kalsms_demo" android:summary="URL to load when the SMS is received"></EditTextPreference>
+	<EditTextPreference android:key="pref_identifier" android:title="SMS Identifier" android:defaultValue="kal " android:summary="Handle only SMS messages starting with this string (leave empty to handle all messages)"></EditTextPreference>
+</PreferenceScreen>

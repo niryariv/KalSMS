@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:background="#333333">
+<TextView  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="@string/hello"
+    android:textColor="#FFFFFF" android:textSize="30px" android:layout_margin="2px"/>
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/info" android:textColor="#FFFFFF" android:layout_margin="5px"></TextView>
+<!--<Button android:layout_width="fill_parent" android:layout_height="wrap_content" android:gravity="center" android:id="@+id/settingsButton" android:text="Edit Settings" android:layout_marginRight="50px" android:layout_marginLeft="50px"></Button>-->
+</LinearLayout>
