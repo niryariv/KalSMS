@@ -4,8 +4,6 @@ import kalsms.niryariv.itp.R;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.preference.PreferenceActivity;
-import android.preference.Preference;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Html;
