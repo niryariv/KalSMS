@@ -17,7 +17,7 @@ public class Main extends Activity {
 	
 	public String identifier = "";
 	public String targetUrl = "";
-	
+	public Boolean polling = false;
     
 	public void onResume() {
 		Log.d("KALSMS", "RESUME");
@@ -27,11 +27,14 @@ public class Main extends Activity {
 		
 		this.identifier = settings.getString("pref_identifier", "");
 		this.targetUrl =  settings.getString("pref_target_url", "");
-
+		this.polling = settings.getBoolean("pref_poll_switch", false);
+		
 		Log.d("KALSMS", "onResume ident:" + this.identifier +"\ntarget:" + this.targetUrl);
 		
 		String infoText = new String();
 		
+		// Home Screen text
+
 		infoText = "All SMS messages";
 		
 		if (this.identifier.trim() != "") {
@@ -40,11 +43,16 @@ public class Main extends Activity {
 		
 		infoText += " are now sent to <b>" + this.targetUrl +"</b> in the following format:";
 		infoText += "<p><tt>GET " + this.targetUrl + "?sender=&lt;phone#&gt;&msg=&lt;message&gt;</tt></p>";
-		infoText += "If the response body contains text, it will SMSed back to the sender.";
+		infoText += "If the response body contains text, it will SMS back to the originating phone.";
 
+		if (this.polling) {
+			infoText += "<p>The target URL will be polled every 15 minutes</p>";
+		}
+		
 		infoText += "<br /><br /><b>Press Menu to set SMS identifier or target URL.</b>";
 		
 		infoText += "<br /><br /><br />Questions/feedback: niryariv@gmail.com";
+		// /Home Screen text
 		
 		TextView info = (TextView) this.findViewById(R.id.info);
         info.setText(Html.fromHtml(infoText));

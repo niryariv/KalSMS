@@ -13,7 +13,6 @@ import android.preference.CheckBoxPreference;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 
@@ -54,11 +53,9 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 	    	Intent pintent = new Intent(this, SMSSender.class);
 	    	PendingIntent pIntent = PendingIntent.getBroadcast(this,0,pintent, 0);
 	    	if(checkbox.isChecked()) {
-	    		long interval = 60*Integer.valueOf(PreferenceManager.getDefaultSharedPreferences(this).getString("pref_poll_interval", "5000"));//5mins;//5mins
-	    		long firstPoll = SystemClock.elapsedRealtime() + 60*Integer.valueOf(PreferenceManager.getDefaultSharedPreferences(this).getString("pref_poll_interval", "5000"));
-	    		alarm.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, firstPoll, interval, pIntent);
-	    		Log.d("KALSMS", "alarm manager turned on "+interval);
-	    	}else {
+	    		alarm.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime(), AlarmManager.INTERVAL_FIFTEEN_MINUTES, pIntent);
+	    		Log.d("KALSMS", "alarm manager turned on");
+	    	} else {
 	    		alarm.cancel(pIntent);
 	    		Log.d("SMS_GATEWAY", "alarm manager turned off");
 	    	}
