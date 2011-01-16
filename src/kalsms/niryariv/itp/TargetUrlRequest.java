@@ -26,15 +26,19 @@ import android.util.Log;
 
 public class TargetUrlRequest {
 	
-	public String openURL(String sender, String message, String targetUrl) {
+	public String openURL(String sender, String message, String targetUrl, Boolean isPollRequest) {
 		
-		String url = targetUrl;
+		List<NameValuePair> qparams = new ArrayList<NameValuePair>();
+        
 		if(sender.trim().length() > 0 && message.trim().length() > 0) {
-	        List<NameValuePair> qparams = new ArrayList<NameValuePair>();
 	        qparams.add(new BasicNameValuePair("sender", sender));
-	        qparams.add(new BasicNameValuePair("msg", message));
-	        url = targetUrl + "?" + URLEncodedUtils.format(qparams, "UTF-8");
-		}
+	        qparams.add(new BasicNameValuePair("msg", message));	        
+		} else if (isPollRequest) {
+        	qparams.add(new BasicNameValuePair("poll", "true"));
+        }
+
+		String url = targetUrl + "?" + URLEncodedUtils.format(qparams, "UTF-8");
+
         try {
 	        HttpClient client = new DefaultHttpClient();  
 	        HttpGet get = new HttpGet(url);

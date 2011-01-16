@@ -20,7 +20,7 @@
 		android:key="pref_poll_switch" 
 		android:title="Server Polling" 
 		android:disableDependentsState="false" 
-		android:summary="Poll target URL every 15 minutes (Note: Polling increased power consumption, and is not supported by all phone models)"
+		android:summary="Poll target URL every 15 minutes (Note: increases power usage)"
 		></CheckBoxPreference>
 	
 </PreferenceScreen>

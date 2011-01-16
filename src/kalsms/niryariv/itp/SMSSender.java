@@ -26,7 +26,7 @@ public class SMSSender extends BroadcastReceiver {
 		Log.d("KALSMS", "url:\"" + targetUrl);	
 		TargetUrlRequest url = new TargetUrlRequest();
 		// send the message to the URL
-		String resp = url.openURL("","",targetUrl).toString();
+		String resp = url.openURL("","",targetUrl, true).toString();
 		
 		Log.d("KALSMS", "RESP:\"" + resp);
 		

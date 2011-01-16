@@ -41,7 +41,7 @@ public class SMSReceiver extends BroadcastReceiver {
 				Log.d("KALSMS", "MSG RCVD:\"" + message + "\" from: " + sender);
 				
 				// send the message to the URL
-				String resp = url.openURL(sender, message, targetUrl).toString();
+				String resp = url.openURL(sender, message, targetUrl, false).toString();
 				Log.d("KALSMS", "RESP:\"" + resp);
 				
 				// SMS back the response
