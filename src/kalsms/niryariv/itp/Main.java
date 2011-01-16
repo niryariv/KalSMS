@@ -34,7 +34,6 @@ public class Main extends Activity {
 		String infoText = new String();
 		
 		// Home Screen text
-
 		infoText = "All SMS messages";
 		
 		if (this.identifier.trim() != "") {
@@ -46,13 +45,13 @@ public class Main extends Activity {
 		infoText += "If the response body contains text, it will SMS back to the originating phone.";
 
 		if (this.polling) {
-			infoText += "<p>The target URL will be polled every 15 minutes</p>";
+			infoText += "<p>The target URL will be polled every 15 minutes (<i>note that polling increases power consumption</i>)</p>";
 		}
 		
 		infoText += "<br /><br /><b>Press Menu to set SMS identifier or target URL.</b>";
 		
-		infoText += "<br /><br /><br />Questions/feedback: niryariv@gmail.com";
-		// /Home Screen text
+		infoText += "<p>Questions/feedback: niryariv@gmail.com</p>";
+		// END Home Screen text
 		
 		TextView info = (TextView) this.findViewById(R.id.info);
         info.setText(Html.fromHtml(infoText));
