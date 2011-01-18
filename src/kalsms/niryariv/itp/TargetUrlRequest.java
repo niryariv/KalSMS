@@ -22,11 +22,16 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
+import android.telephony.SmsManager;
 import android.util.Log;
 
 public class TargetUrlRequest {
 	
+	private String sender = "";
+	
 	public String openURL(String sender, String message, String targetUrl, Boolean isPollRequest) {
+		
+		this.sender = sender;
 		
 		List<NameValuePair> qparams = new ArrayList<NameValuePair>();
         
@@ -105,5 +110,22 @@ public class TargetUrlRequest {
             e.printStackTrace();
             return (output);
         }
-    }	
+    }
+	
+	public void sendMessages(ArrayList<ArrayList<String>> items) { 
+		SmsManager smgr = SmsManager.getDefault();
+		for (int j = 0; j < items.size(); j++) {
+			String sendTo = items.get(j).get(0);
+			if (sendTo.toLowerCase() == "sender") sendTo = this.sender;
+			String sendMsg = items.get(j).get(1);
+			try {
+				Log.d("KALSMS", "SEND MSG:\"" + sendMsg + "\" TO: " + sendTo);
+				smgr.sendTextMessage(sendTo, null, sendMsg, null, null);
+			} catch (Exception ex) {
+				Log.d("KALSMS", "SMS FAILED");
+			}
+		}
+	}
+	
 }
+	

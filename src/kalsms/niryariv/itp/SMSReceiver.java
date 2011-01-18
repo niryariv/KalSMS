@@ -9,7 +9,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
@@ -47,19 +46,7 @@ public class SMSReceiver extends BroadcastReceiver {
 				// SMS back the response
 				if (resp.trim().length() > 0) {
 					ArrayList<ArrayList<String>> items = url.parseXML(resp);
-					
-					SmsManager smgr = SmsManager.getDefault();
-					for (int j = 0; j < items.size(); j++) {
-						String sendTo = items.get(j).get(0);
-						if (sendTo.toLowerCase() == "sender") sendTo = sender;
-						String sendMsg = items.get(j).get(1);
-						try {
-							Log.d("KALSMS", "SEND MSG:\"" + sendMsg + "\" TO: " + sendTo);
-							smgr.sendTextMessage(sendTo, null, sendMsg, null, null);
-						} catch (Exception ex) {
-							Log.d("KALSMS", "SMS FAILED");
-						}
-					}
+					url.sendMessages(items);
 				}
 				// delete SMS from inbox, to prevent it from filling up
 				DeleteSMSFromInbox(context, mesg);
