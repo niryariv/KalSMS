@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="kalsms.niryariv.itp"
+      package="org.envaya.kalsms"
       android:versionCode="1"
       android:versionName="1.0">
          
@@ -19,18 +19,24 @@
             </intent-filter>
         </activity>
         
-        <receiver android:name=".SMSReceiver">
-			<intent-filter>
-				<action android:name="android.provider.Telephony.SMS_RECEIVED" />
-			</intent-filter>
-		</receiver>
+        <receiver android:name=".IncomingMessageForwarder">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
  		
- 		<receiver android:name=".SMSSender">
-		</receiver>
+        <receiver android:name=".OutgoingMessagePoller">
+        </receiver>
 
-		<activity android:name=".Prefs"
-	          android:label="@string/app_name">
-		</activity>
+        <receiver android:name=".MessageStatusNotifier">
+            <intent-filter>                
+                <action android:name="org.envaya.kalsms.SEND_STATUS" />
+            </intent-filter>            
+        </receiver>
+
+        <activity android:name=".Prefs"
+          android:label="@string/app_name">
+        </activity>
 
     </application>
 </manifest> 

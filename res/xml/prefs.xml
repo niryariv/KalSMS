@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen
   xmlns:android="http://schemas.android.com/apk/res/android">
+    <EditTextPreference 
+            android:key="server_url" 
+            android:title="Server URL" 
+            android:defaultValue="http://192.168.70.1:3000/"
+    ></EditTextPreference>        
 
-	<EditTextPreference 
-		android:key="pref_target_url" 
-		android:title="Target URL" 
-		android:summary="URL to load when the SMS is received"
-		android:defaultValue="http://qkhack.appspot.com/kalsms_demo"
-		></EditTextPreference>
-	
-	<EditTextPreference 
-		android:key="pref_identifier" 
-		android:title="SMS Identifier" 
-		android:summary="Handle only SMS messages starting with this string (leave empty to handle all messages)"
-		android:defaultValue="kal "
-		></EditTextPreference>
-	
-	<CheckBoxPreference
-		android:key="pref_poll_switch" 
-		android:title="Server Polling" 
-		android:disableDependentsState="false" 
-		android:summary="Poll target URL every 15 minutes (Note: increases power usage)"
-		></CheckBoxPreference>
-	
+    <EditTextPreference 
+            android:key="phone_number" 
+            android:title="Your Phone Number" 
+            android:defaultValue="16507993371"
+    ></EditTextPreference>
+
+    <EditTextPreference 
+            android:key="password" 
+            android:title="Password" 
+            android:password="true"
+    ></EditTextPreference>
+
+    <CheckBoxPreference
+            android:key="detailed_log" 
+            android:title="Detailed log messages?" 
+            android:disableDependentsState="false" 		
+    ></CheckBoxPreference>	
 </PreferenceScreen>
