@@ -10,14 +10,20 @@ import android.preference.PreferenceManager;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.text.DateFormat;
 import java.util.Date;
+import org.apache.http.HttpResponse;
+import org.apache.http.message.BasicNameValuePair;
 
 public class Main extends Activity {   
 	
+    private App app;
+    
     private BroadcastReceiver logReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {  
@@ -25,6 +31,19 @@ public class Main extends Activity {
         }
     };
     
+    private class TestTask extends HttpTask
+    {
+        public TestTask() {
+            super(app);   
+        }
+        
+        @Override
+        protected void handleResponse(HttpResponse response) throws Exception 
+        {        
+            app.log("Server connection OK!");
+        }
+    }
+        
     private long lastLogTime = 0;
 
     public void showLogMessage(String message)
@@ -85,7 +104,7 @@ public class Main extends Activity {
         
         App.debug("STARTED");
         
-        App app = App.getInstance(this.getApplication());
+        this.app = App.getInstance(this.getApplication());
         
         setContentView(R.layout.main);
         PreferenceManager.setDefaultValues(this, R.xml.prefs, false);               
@@ -104,25 +123,36 @@ public class Main extends Activity {
         logReceiverFilter.addAction(App.LOG_INTENT);
         registerReceiver(logReceiver, logReceiverFilter);        
         
-        app.setOutgoingMessageAlarm();     
-        
-        for (int i = 0; i < 30; i++)
-        {
-            showLogMessage(" " + i);   
-        }
+        app.setOutgoingMessageAlarm();
     }
     
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+        case R.id.settings:
+            startActivity(new Intent(this, Prefs.class));
+            return true;
+        case R.id.test: 
+            app.log("Testing server connection...");
+            new TestTask().execute(
+                new BasicNameValuePair("action", App.ACTION_TEST)                    
+            );            
+            return true;
+        default:
+            return super.onOptionsItemSelected(item);
+        }
+    }    
+    
     // first time the Menu key is pressed
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        startActivity(new Intent(this, Prefs.class));
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.mainmenu, menu);
+        
         return(true);
     }
 
-    // any other time the Menu key is pressed
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        startActivity(new Intent(this, Prefs.class));
-        return(true);
-    }
 	    
     @Override
     protected void onStop(){

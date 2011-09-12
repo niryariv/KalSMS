@@ -29,6 +29,7 @@ public class App {
     public static final String ACTION_OUTGOING = "outgoing";
     public static final String ACTION_INCOMING = "incoming";
     public static final String ACTION_SEND_STATUS = "send_status";
+    public static final String ACTION_TEST = "test";
     
     public static final int STATUS_QUEUED = 1;
     public static final int STATUS_FAILED = 2;
