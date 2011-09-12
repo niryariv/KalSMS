@@ -16,8 +16,6 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
 import android.util.Log;
-import java.text.DateFormat;
-import java.util.Date;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.BasicHttpParams;
@@ -161,7 +159,6 @@ public class App {
         return settings.getString("password", "");
     }           
     
-    private SQLiteDatabase db;
     public SQLiteDatabase getWritableDatabase()
     {
         return new DBHelper(context).getWritableDatabase();        

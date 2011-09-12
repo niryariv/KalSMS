@@ -73,7 +73,7 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
             
             EditTextPreference textPref = (EditTextPreference)p;
             String text = textPref.getText();
-            if (text.equals(""))
+            if (text == null || text.equals(""))
             {            
                 p.setSummary("(not set)"); 
             }            

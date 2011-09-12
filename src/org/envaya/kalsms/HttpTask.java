@@ -5,7 +5,6 @@
 package org.envaya.kalsms;
 
 import android.os.AsyncTask;
-import android.util.Base64;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
@@ -67,7 +66,7 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
             
             byte[] digest = md.digest(); 
             
-            return Base64.encodeToString(digest, Base64.NO_WRAP);            
+            return new String(Base64Coder.encode(digest));
             
         } catch (Exception ex) {
             app.logError("Error computing signature", ex);
