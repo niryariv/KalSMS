@@ -53,7 +53,6 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
         String serverUrl = app.getServerUrl();
         String message = sms.getMessageBody();
         String sender = sms.getOriginatingAddress();
-        String recipient = app.getPhoneNumber();
 
         app.log("Received SMS from " + sender);
 
@@ -64,7 +63,6 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
 
             new ForwarderTask(sms).execute(
                 new BasicNameValuePair("from", sender),
-                new BasicNameValuePair("to", recipient),
                 new BasicNameValuePair("message", message),
                 new BasicNameValuePair("action", App.ACTION_INCOMING)
             );

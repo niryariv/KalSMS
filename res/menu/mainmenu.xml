@@ -6,4 +6,7 @@
     <item android:id="@+id/test"          
             android:icon="@drawable/icon"
           android:title="@string/test" />
+    <item android:id="@+id/check_now"          
+            android:icon="@drawable/icon"
+          android:title="@string/check_now" />          
 </menu>

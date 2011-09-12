@@ -84,6 +84,7 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
                         
             String signature = this.getSignature(url, params);
             
+            post.setHeader("X-Kalsms-Version", "2");
             post.setHeader("X-Kalsms-PhoneNumber", app.getPhoneNumber());
             post.setHeader("X-Kalsms-Signature", signature);
             

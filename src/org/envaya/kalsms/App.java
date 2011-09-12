@@ -16,8 +16,10 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
 import android.util.Log;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
@@ -71,6 +73,22 @@ public class App {
         context.sendBroadcast(broadcast);        
     }
 
+    public void checkOutgoingMessages()
+    {
+        String serverUrl = getServerUrl();
+        if (serverUrl.length() > 0) 
+        {
+            log("Checking for outgoing messages");
+            new PollerTask().execute(                
+                new BasicNameValuePair("action", App.ACTION_OUTGOING)
+            );
+        }
+        else
+        {
+            log("Can't check outgoing messages; server URL not set");
+        }
+    }
+    
     public void setOutgoingMessageAlarm()
     {
         AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);        
@@ -212,4 +230,20 @@ public class App {
         log("Sending " +sms.getLogName() + " to " + sms.getTo());
         smgr.sendTextMessage(sms.getTo(), null, sms.getMessage(), sentIntent, null);
     }
+    
+    private class PollerTask extends HttpTask {
+
+        public PollerTask()
+        {
+            super(app);
+        }
+        
+        @Override
+        protected void handleResponse(HttpResponse response) throws Exception {
+            for (OutgoingSmsMessage reply : parseResponseXML(response)) {
+                app.sendSMS(reply);
+            }                                        
+        }                
+    }
+    
 }

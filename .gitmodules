@@ -1,0 +1,3 @@
+[submodule "server/php/example/httpserver"]
+	path = server/php/example/httpserver
+	url = git://github.com/youngj/httpserver.git

@@ -133,6 +133,9 @@ public class Main extends Activity {
         case R.id.settings:
             startActivity(new Intent(this, Prefs.class));
             return true;
+        case R.id.check_now:
+            app.checkOutgoingMessages();
+            return true;
         case R.id.test: 
             app.log("Testing server connection...");
             new TestTask().execute(
