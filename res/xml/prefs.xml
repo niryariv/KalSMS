@@ -4,13 +4,13 @@
     <EditTextPreference 
             android:key="server_url" 
             android:title="Server URL" 
-            android:defaultValue="http://192.168.70.1:3000/"
-    ></EditTextPreference>        
+            android:defaultValue=""
+    ></EditTextPreference>
 
     <EditTextPreference 
             android:key="phone_number" 
             android:title="Your Phone Number" 
-            android:defaultValue="16507993371"
+            android:defaultValue=""
     ></EditTextPreference>
 
     <EditTextPreference 
@@ -18,10 +18,20 @@
             android:title="Password" 
             android:password="true"
     ></EditTextPreference>
+    
+    <ListPreference
+            android:key="outgoing_interval" 
+            android:title="Poll interval" 
+            android:defaultValue="60"
+            android:entries="@array/check_intervals"
+            android:entryValues="@array/check_intervals_values"
+    ></ListPreference>    
 
+<!--
     <CheckBoxPreference
             android:key="detailed_log" 
             android:title="Detailed log messages?" 
             android:disableDependentsState="false" 		
     ></CheckBoxPreference>	
+    -->
 </PreferenceScreen>

@@ -14,11 +14,14 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public class DBHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DATABASE_NAME = "org.envaya.kalsms.db";
     
-    private static final String SENT_SMS_TABLE_CREATE = 
-        "CREATE TABLE sent_sms (server_id text);"
+    private static final String SMS_STATUS_TABLE_DROP = 
+       " DROP TABLE sms_status;";
+    
+    private static final String SMS_STATUS_TABLE_CREATE = 
+        "CREATE TABLE sms_status (server_id text, status int);"
         + "CREATE INDEX server_id_index ON sent_sms (server_id);";
 
     public DBHelper(Context context) {
@@ -27,11 +30,14 @@ public class DBHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL(SENT_SMS_TABLE_CREATE);
+        db.execSQL(SMS_STATUS_TABLE_CREATE);
     }
     
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        
+        if (oldVersion < 2)
+        {
+            db.execSQL(SMS_STATUS_TABLE_CREATE);
+        }        
     }    
 }    

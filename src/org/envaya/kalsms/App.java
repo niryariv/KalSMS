@@ -4,6 +4,7 @@
  */
 package org.envaya.kalsms;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
@@ -11,18 +12,28 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
 import android.util.Log;
+import java.text.DateFormat;
+import java.util.Date;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 
-/**
- *
- * @author Jesse
- */
 public class App {
     
-    public static final int OUTGOING_POLL_SECONDS = 30;
-       
+    public static final String ACTION_OUTGOING = "outgoing";
+    public static final String ACTION_INCOMING = "incoming";
+    public static final String ACTION_SEND_STATUS = "send_status";
+    
+    public static final int STATUS_QUEUED = 1;
+    public static final int STATUS_FAILED = 2;
+    public static final int STATUS_SENT = 3;
+    
     public static final String LOG_NAME = "KALSMS";    
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
     public static final String SEND_STATUS_INTENT = "org.envaya.kalsms.SEND_STATUS";
@@ -30,17 +41,28 @@ public class App {
     public Context context;
     public SharedPreferences settings;
     
-    public App(Context context)
+    protected App(Context context)
     {
         this.context = context;
         this.settings = PreferenceManager.getDefaultSharedPreferences(context);
+    }
+    
+    private static App app;
+    
+    public static App getInstance(Context context)
+    {
+        if (app == null)
+        {
+            app = new App(context);
+        }
+        return app;
     }
     
     static void debug(String msg)
     {
         Log.d(LOG_NAME, msg);          
     }
-    
+                       
     public void log(String msg) 
     {
         Log.d(LOG_NAME, msg);
@@ -50,6 +72,34 @@ public class App {
         context.sendBroadcast(broadcast);        
     }
 
+    public void setOutgoingMessageAlarm()
+    {
+        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);        
+        
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
+                0,
+                new Intent(context, OutgoingMessagePoller.class), 
+                0);     
+        
+        alarm.cancel(pendingIntent);        
+        
+        int pollSeconds = getOutgoingPollSeconds();
+        
+        if (pollSeconds > 0)
+        {
+            alarm.setRepeating(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime(),                                
+                pollSeconds * 1000, 
+                pendingIntent);        
+            log("Checking for outgoing messages every " + pollSeconds + " sec");            
+        }
+        else
+        {
+            log("Not checking for outgoing messages.");
+        }
+    }
+    
     public void logError(Throwable ex)
     {
         logError("ERROR", ex);
@@ -77,20 +127,17 @@ public class App {
             }
         }
     }        
-    
-    public String getIncomingUrl()
+        
+    public String getDisplayString(String str)
     {
-        return getServerUrl() + "/pg/receive_sms";
-    }
-    
-    public String getOutgoingUrl()
-    {
-        return getServerUrl() + "/pg/dequeue_sms";
-    }    
-    
-    public String getSendStatusUrl()
-    {
-        return getServerUrl() + "/pg/sms_sent";
+        if (str.length() == 0)
+        {
+            return "(not set)";
+        }
+        else
+        {
+            return str;
+        }   
     }
     
     public String getServerUrl()
@@ -103,20 +150,29 @@ public class App {
         return settings.getString("phone_number", "");
     }
     
+    public int getOutgoingPollSeconds()
+    {                
+        return Integer.parseInt(settings.getString("outgoing_interval", "0"));        
+    }    
+    
     public String getPassword()
     {
         return settings.getString("password", "");
-    }       
+    }           
     
     private SQLiteDatabase db;
     public SQLiteDatabase getWritableDatabase()
     {
-        if (db == null)
-        {
-            db = new DBHelper(context).getWritableDatabase();
-        }
-        return db;
+        return new DBHelper(context).getWritableDatabase();        
     }
+    
+    public HttpClient getHttpClient()
+    {
+        HttpParams httpParameters = new BasicHttpParams();
+        HttpConnectionParams.setConnectionTimeout(httpParameters, 8000);
+        HttpConnectionParams.setSoTimeout(httpParameters, 8000);                    
+        return new DefaultHttpClient(httpParameters);        
+    }        
     
     public void sendSMS(OutgoingSmsMessage sms)
     {       
@@ -126,7 +182,7 @@ public class App {
         {
             SQLiteDatabase db = this.getWritableDatabase();
             Cursor cursor = 
-                db.rawQuery("select 1 from sent_sms where server_id=?", new String[] { serverId });
+                db.rawQuery("select 1 from sms_status where server_id=?", new String[] { serverId });
         
             boolean exists = (cursor.getCount() > 0);
             cursor.close();
@@ -138,7 +194,10 @@ public class App {
             
             ContentValues values = new ContentValues();
             values.put("server_id", serverId);
-            db.insert("sent_sms", null, values);
+            values.put("status", App.STATUS_QUEUED);
+            db.insert("sms_status", null, values);
+            
+            db.close();
         }         
 
         SmsManager smgr = SmsManager.getDefault();

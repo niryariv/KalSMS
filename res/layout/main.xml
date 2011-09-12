@@ -3,11 +3,14 @@
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent" android:background="#333333">
+<ScrollView android:id="@+id/info_scroll" android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:layout_weight="1">
 <TextView 
-    android:scrollbars="vertical"
     android:layout_width="fill_parent" 
     android:layout_height="fill_parent" 
     android:id="@+id/info" 
     android:textColor="#FFFFFF" 
     android:layout_margin="5px"></TextView>
+</ScrollView>      
 </LinearLayout>
+  

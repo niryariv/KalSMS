@@ -9,73 +9,71 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.SmsManager;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 
 public class MessageStatusNotifier extends BroadcastReceiver {
 
     private App app;
-    
-    public void notifySuccess(String serverId)
+        
+    public void notifyStatus(String serverId, int status, String errorMessage)
     {
+        String logMessage;
+        switch (status)
+        {
+            case App.STATUS_SENT:
+                logMessage = "sent successfully"; 
+                break;
+            case App.STATUS_FAILED:
+                logMessage = "could not be sent (" + errorMessage + ")";
+                break;
+            default:
+                logMessage = "queued";
+                break;
+        }
+        String smsDesc = serverId == null ? "SMS reply" : ("SMS id=" + serverId);
+        
         if (serverId != null)
         {        
-            try {
-                app.log("Notifying server of sent SMS id=" + serverId);
-                List<NameValuePair> params = new ArrayList<NameValuePair>();
-                params.add(new BasicNameValuePair("from", app.getPhoneNumber()));
-                params.add(new BasicNameValuePair("secret", app.getPassword()));
-                params.add(new BasicNameValuePair("id", serverId));
+            app.log("Notifying server " + smsDesc + " " + logMessage);            
 
-                HttpClient client = new DefaultHttpClient();
-                HttpPost post = new HttpPost(app.getSendStatusUrl());
-                post.setEntity(new UrlEncodedFormEntity(params));            
-
-                client.execute(post);                
-            }
-            catch (IOException ex) 
-            {
-                app.logError("Error while notifying server of outgoing message", ex);
-            }        
+            new HttpTask(app).execute(
+                new BasicNameValuePair("from", app.getPhoneNumber()),
+                new BasicNameValuePair("id", serverId),
+                new BasicNameValuePair("status", "" + status),
+                new BasicNameValuePair("error", errorMessage),
+                new BasicNameValuePair("action", App.ACTION_SEND_STATUS)
+            );
+        }
+        else
+        {
+            app.log(smsDesc + " " + logMessage);
         }
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        app = new App(context);
+        app = App.getInstance(context);
 
         String serverId = intent.getExtras().getString("serverId");
         
-        String desc = serverId == null ? "SMS reply" : ("SMS id=" + serverId);
-        
         switch (getResultCode()) {
             case Activity.RESULT_OK:                
-                app.log(desc + " sent successfully");
-                this.notifySuccess(serverId);
+                this.notifyStatus(serverId, App.STATUS_SENT, "");
                 break;
             case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                app.log(desc + " could not be sent (generic failure)");
+                this.notifyStatus(serverId, App.STATUS_FAILED, "generic failure");
                 break;
             case SmsManager.RESULT_ERROR_RADIO_OFF:
-                app.log(desc + " could not be sent (radio off)");
+                this.notifyStatus(serverId, App.STATUS_FAILED, "radio off");
                 break;
             case SmsManager.RESULT_ERROR_NO_SERVICE:
-                app.log(desc + " could not be sent (no service)");
+                this.notifyStatus(serverId, App.STATUS_FAILED, "no service");
                 break;
             case SmsManager.RESULT_ERROR_NULL_PDU:
-                app.log(desc + " could not be sent (null PDU");
+                this.notifyStatus(serverId, App.STATUS_FAILED, "null PDU");
                 break;
             default:
-                app.log("SMS could not be sent (unknown error)");
+                this.notifyStatus(serverId, App.STATUS_FAILED, "unknown error");
                 break;
         }
     }
