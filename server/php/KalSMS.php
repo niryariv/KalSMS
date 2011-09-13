@@ -11,7 +11,6 @@ class KalSMS
     const ACTION_INCOMING = 'incoming';
     const ACTION_OUTGOING = 'outgoing';
     const ACTION_SEND_STATUS = 'send_status';
-    const ACTION_TEST = 'test';
 
     const STATUS_QUEUED = 'queued';
     const STATUS_FAILED = 'failed';
@@ -50,8 +49,6 @@ class KalSMS
                 return new KalSMS_Action_Outgoing($this);                
             case static::ACTION_SEND_STATUS:
                 return new KalSMS_Action_SendStatus($this);
-            case static::ACTION_TEST:
-                return new KalSMS_Action_Test($this);
             default:
                 return new KalSMS_Action($this);
         }

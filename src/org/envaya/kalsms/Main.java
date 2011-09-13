@@ -40,7 +40,9 @@ public class Main extends Activity {
         @Override
         protected void handleResponse(HttpResponse response) throws Exception 
         {        
-            app.log("Server connection OK!");
+            parseResponseXML(response);
+            
+            app.log("Server connection OK!");            
         }
     }
         
@@ -139,7 +141,7 @@ public class Main extends Activity {
         case R.id.test: 
             app.log("Testing server connection...");
             new TestTask().execute(
-                new BasicNameValuePair("action", App.ACTION_TEST)                    
+                new BasicNameValuePair("action", App.ACTION_OUTGOING)                    
             );            
             return true;
         default:

@@ -80,10 +80,6 @@ switch ($action->type)
         }   
         return;
         
-    case KalSMS::ACTION_TEST:
-        echo "OK";
-        return;
-    
     default:
         header("HTTP/1.1 404 Not Found");
         echo "Invalid action";
