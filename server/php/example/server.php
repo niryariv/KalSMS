@@ -1,12 +1,12 @@
 <?php
 
 /*
- * Example standalone HTTP server that routes all .php URIs to PHP files under ./example_www, 
- * and routes all other URIs to static files under ./example_www. 
+ * Example standalone HTTP server that routes all .php URIs to PHP files under ./www, 
+ * and routes all other URIs to static files under ./www. 
  * 
  * index.php is used as the directory index.
  *
- * Just run it on the command line like "php example_server.php".
+ * Just run it on the command line like "php server.php".
  */
 
 require_once __DIR__ . '/httpserver/httpserver.php';

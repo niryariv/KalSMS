@@ -3,7 +3,7 @@ PHP server library for KalSMS, with example implementation
 
 The KalSMS.php library is intended to be used as part of a PHP application 
 running on an HTTP server that receives incoming SMS messages from, and sends 
-outgoing SMS messages to an Android phone running KalSMS.
+outgoing SMS messages to, an Android phone running KalSMS.
 
 To run the example implementation, the example/www/ directory should be made available 
 via a web server running PHP (e.g. Apache). You can also use the included standalone 
