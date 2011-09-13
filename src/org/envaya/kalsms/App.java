@@ -31,9 +31,9 @@ public class App {
     public static final String ACTION_SEND_STATUS = "send_status";
     public static final String ACTION_TEST = "test";
     
-    public static final int STATUS_QUEUED = 1;
-    public static final int STATUS_FAILED = 2;
-    public static final int STATUS_SENT = 3;
+    public static final String STATUS_QUEUED = "queued";
+    public static final String STATUS_FAILED = "failed";
+    public static final String STATUS_SENT = "sent";
     
     public static final String LOG_NAME = "KALSMS";    
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";

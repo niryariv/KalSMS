@@ -15,20 +15,20 @@ public class MessageStatusNotifier extends BroadcastReceiver {
 
     private App app;
         
-    public void notifyStatus(String serverId, int status, String errorMessage)
+    public void notifyStatus(String serverId, String status, String errorMessage)
     {
         String logMessage;
-        switch (status)
+        if (status.equals(App.STATUS_SENT))
         {
-            case App.STATUS_SENT:
-                logMessage = "sent successfully"; 
-                break;
-            case App.STATUS_FAILED:
-                logMessage = "could not be sent (" + errorMessage + ")";
-                break;
-            default:
-                logMessage = "queued";
-                break;
+            logMessage = "sent successfully"; 
+        }
+        else if (status.equals(App.STATUS_FAILED))
+        {
+            logMessage = "could not be sent (" + errorMessage + ")";
+        }
+        else
+        {
+            logMessage = "queued";
         }
         String smsDesc = serverId == null ? "SMS reply" : ("SMS id=" + serverId);
         
@@ -37,9 +37,8 @@ public class MessageStatusNotifier extends BroadcastReceiver {
             app.log("Notifying server " + smsDesc + " " + logMessage);            
 
             new HttpTask(app).execute(
-                new BasicNameValuePair("from", app.getPhoneNumber()),
                 new BasicNameValuePair("id", serverId),
-                new BasicNameValuePair("status", "" + status),
+                new BasicNameValuePair("status", status),
                 new BasicNameValuePair("error", errorMessage),
                 new BasicNameValuePair("action", App.ACTION_SEND_STATUS)
             );

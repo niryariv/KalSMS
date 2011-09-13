@@ -13,9 +13,9 @@ class KalSMS
     const ACTION_SEND_STATUS = 'send_status';
     const ACTION_TEST = 'test';
 
-    const STATUS_QUEUED = 1;
-    const STATUS_FAILED = 2;
-    const STATUS_SENT = 3;
+    const STATUS_QUEUED = 'queued';
+    const STATUS_FAILED = 'failed';
+    const STATUS_SENT = 'sent';
     
     static function new_from_request()
     {
@@ -29,7 +29,18 @@ class KalSMS
         return htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
     }
     
+    private $request_action;
+    
     function get_request_action()
+    {
+        if (!$this->request_action)
+        {
+            $this->request_action = $this->_get_request_action();
+        }
+        return $this->request_action;
+    }
+    
+    private function _get_request_action()
     {
         switch (@$_POST['action'])
         {
@@ -171,7 +182,7 @@ class KalSMS_Action_SendStatus extends KalSMS_Action
     function __construct($type)
     {
         $this->type = KalSMS::ACTION_SEND_STATUS;        
-        $this->status = (int)$_POST['status'];
+        $this->status = $_POST['status'];
         $this->id = $_POST['id'];
     } 
 }
