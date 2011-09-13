@@ -30,5 +30,14 @@
     <CheckBoxPreference
             android:key="launch_on_boot" 
             android:title="Launch automatically?" 
+            android:summaryOff="KalSMS will not open when phone boots (but will still forward SMS)"
+            android:summaryOn="KalSMS will open when phone boots"
     ></CheckBoxPreference>	    
+    
+    <CheckBoxPreference
+            android:key="keep_in_inbox"
+            android:title="Keep new messages?"      
+            android:summaryOff="Incoming SMS will not be stored in Messaging inbox"
+            android:summaryOn="Incoming SMS will be stored in Messaging inbox"
+    ></CheckBoxPreference>	        
 </PreferenceScreen>

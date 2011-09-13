@@ -7,7 +7,9 @@ package org.envaya.kalsms;
 import android.os.AsyncTask;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,41 +52,35 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
     }            
     
     private String getSignature(String url, List<BasicNameValuePair> params)
+            throws NoSuchAlgorithmException, UnsupportedEncodingException
     {
-        try {
-            Collections.sort(params, new Comparator() {
-                public int compare(Object o1, Object o2)
-                {
-                    return ((BasicNameValuePair)o1).getName().compareTo(((BasicNameValuePair)o2).getName());
-                }
-            });
-            
-            StringBuilder builder = new StringBuilder();
-            builder.append(url);
-            for (BasicNameValuePair param : params)
+        Collections.sort(params, new Comparator() {
+            public int compare(Object o1, Object o2)
             {
-                builder.append(",");
-                builder.append(param.getName());
-                builder.append("=");
-                builder.append(param.getValue());                
+                return ((BasicNameValuePair)o1).getName().compareTo(((BasicNameValuePair)o2).getName());
             }
+        });
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(url);
+        for (BasicNameValuePair param : params)
+        {
             builder.append(",");
-            builder.append(app.getPassword());
-            
-            String value = builder.toString();
-            
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-            
-            md.update(value.getBytes("utf-8"));
-            
-            byte[] digest = md.digest(); 
-            
-            return new String(Base64Coder.encode(digest));
-            
-        } catch (Exception ex) {
-            app.logError("Error computing signature", ex);
+            builder.append(param.getName());
+            builder.append("=");
+            builder.append(param.getValue());                
         }
-        return "";
+        builder.append(",");
+        builder.append(app.getPassword());
+
+        String value = builder.toString();
+
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        md.update(value.getBytes("utf-8"));
+
+        byte[] digest = md.digest(); 
+
+        return new String(Base64Coder.encode(digest));            
     }    
     
     protected HttpResponse doInBackground(BasicNameValuePair... params) {
