@@ -92,22 +92,14 @@ public class Main extends Activity {
             } });
         }        
     }
-        
-    
-    public void onResume() {
-        App.debug("RESUME");
-        super.onResume();                                		
-    }	
-	
+            
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        App.debug("STARTED");
-        
         this.app = App.getInstance(this.getApplication());
-        
+                
         setContentView(R.layout.main);
         PreferenceManager.setDefaultValues(this, R.xml.prefs, false);               
         
@@ -138,6 +130,9 @@ public class Main extends Activity {
         case R.id.check_now:
             app.checkOutgoingMessages();
             return true;
+        case R.id.retry_now:
+            app.retryStuckMessages(true);
+            return true;           
         case R.id.help:
             startActivity(new Intent(this, Help.class));
             return true;
@@ -161,6 +156,14 @@ public class Main extends Activity {
         return(true);
     }
 
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem item = menu.findItem(R.id.retry_now);
+        int stuckMessages = app.getStuckMessageCount();
+        item.setEnabled(stuckMessages > 0);
+        item.setTitle("Retry Now (" + stuckMessages + ")");
+        return true;
+    }
 	    
     @Override
     protected void onStop(){

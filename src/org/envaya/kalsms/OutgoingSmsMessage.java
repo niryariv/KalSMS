@@ -6,10 +6,25 @@ public class OutgoingSmsMessage  {
     private String serverId;    
     private String message;
     private String from;
-    private String to;       
+    private String to;     
+    
+    private String localId;
+        
+    private static int nextLocalId = 1;
         
     public OutgoingSmsMessage()
-    {        
+    {
+        this.localId = "_o" + getNextLocalId();
+    }
+    
+    static synchronized int getNextLocalId()
+    {
+        return nextLocalId++;
+    }
+    
+    public String getId()
+    {
+        return (serverId == null) ? localId : serverId;
     }
     
     public String getLogName()

@@ -5,4 +5,5 @@
     <string name="test">Test Connection</string>
     <string name="check_now">Check Messages</string>
     <string name="help">Help</string>
+    <string name="retry_now">Retry</string>
 </resources>

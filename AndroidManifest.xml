@@ -29,9 +29,6 @@
         </receiver> 		
 
         <receiver android:name=".MessageStatusNotifier">
-            <intent-filter>                
-                <action android:name="org.envaya.kalsms.SEND_STATUS" />
-            </intent-filter>            
         </receiver>
 
         <receiver android:name=".OutgoingMessagePoller">

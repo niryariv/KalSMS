@@ -12,5 +12,6 @@ public class OutgoingMessagePoller extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         app = App.getInstance(context);
         app.checkOutgoingMessages();
+        app.retryStuckMessages(false);
     }
 }

@@ -4,25 +4,24 @@
  */
 package org.envaya.kalsms;
 
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
+import android.telephony.SmsMessage;
 import android.util.Log;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
 
 public class App {
     
@@ -34,20 +33,86 @@ public class App {
     public static final String STATUS_FAILED = "failed";
     public static final String STATUS_SENT = "sent";
     
-    public static final String LOG_NAME = "KALSMS";    
+    public static final String LOG_NAME = "KALSMS";
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
-    public static final String SEND_STATUS_INTENT = "org.envaya.kalsms.SEND_STATUS";
+    
+    private static App app;    
+    
+    private Map<String, QueuedIncomingSms> incomingSmsMap = new HashMap<String, QueuedIncomingSms>();
+    private Map<String, QueuedOutgoingSms> outgoingSmsMap  = new HashMap<String, QueuedOutgoingSms>();           
     
     public Context context;
     public SharedPreferences settings;
+    
+    private class QueuedMessage<T>
+    {
+        public T sms;
+        public long nextAttemptTime = 0;
+        public int numAttempts = 0;                     
+                
+        public boolean canAttemptNow()
+        {
+            return (nextAttemptTime > 0 && nextAttemptTime < System.currentTimeMillis());
+        }
+                
+        public boolean scheduleNextAttempt()
+        {            
+            long now = System.currentTimeMillis();       
+            numAttempts++;
+            
+            int sec = 1000;
+            
+            if (numAttempts == 1)
+            {
+                log("1st failure; retry in 1 minute");
+                nextAttemptTime = now + sec * 60; // 1 minute
+                return true;
+            }
+            else if (numAttempts == 2)
+            {
+                log("2nd failure; retry in 10 minutes");
+                nextAttemptTime = now + sec * 60 * 10; // 10 min
+                return true;
+            }
+            else if (numAttempts == 3)
+            {
+                log("3rd failure; retry in 1 hour");
+                nextAttemptTime = now + sec * 60 * 60; // 1 hour
+                return true;
+            }
+            else if (numAttempts == 4)
+            {
+                log("4th failure: retry in 1 day");
+                nextAttemptTime = now + sec * 60 * 60 * 24; // 1 day
+                return true;
+            }            
+            else
+            {
+                log("5th failure: giving up");
+                return false;
+            }
+        }
+    }                            
+    
+    private class QueuedIncomingSms extends QueuedMessage<SmsMessage> {
+        public QueuedIncomingSms(SmsMessage sms)
+        {
+            this.sms = sms;
+        }
+    }
+    
+    private class QueuedOutgoingSms extends QueuedMessage<OutgoingSmsMessage> {
+        public QueuedOutgoingSms(OutgoingSmsMessage sms)
+        {
+            this.sms = sms;
+        }        
+    }            
     
     protected App(Context context)
     {
         this.context = context;
         this.settings = PreferenceManager.getDefaultSharedPreferences(context);
     }
-    
-    private static App app;
     
     public static App getInstance(Context context)
     {
@@ -58,7 +123,7 @@ public class App {
         return app;
     }
     
-    static void debug(String msg)
+    public void debug(String msg)
     {
         Log.d(LOG_NAME, msg);          
     }
@@ -174,60 +239,166 @@ public class App {
     public String getPassword()
     {
         return settings.getString("password", "");
-    }           
-    
-    public SQLiteDatabase getWritableDatabase()
+    }               
+        
+    private void notifyStatus(OutgoingSmsMessage sms, String status, String errorMessage)
     {
-        return new DBHelper(context).getWritableDatabase();        
-    }
-    
-    public HttpClient getHttpClient()
-    {
-        HttpParams httpParameters = new BasicHttpParams();
-        HttpConnectionParams.setConnectionTimeout(httpParameters, 8000);
-        HttpConnectionParams.setSoTimeout(httpParameters, 8000);                    
-        return new DefaultHttpClient(httpParameters);        
-    }        
-    
-    public void sendSMS(OutgoingSmsMessage sms)
-    {       
         String serverId = sms.getServerId();
         
-        if (serverId != null)
+        String logMessage;
+        if (status.equals(App.STATUS_SENT))
         {
-            SQLiteDatabase db = this.getWritableDatabase();
-            Cursor cursor = 
-                db.rawQuery("select 1 from sms_status where server_id=?", new String[] { serverId });
+            logMessage = "sent successfully"; 
+        }
+        else if (status.equals(App.STATUS_FAILED))
+        {
+            logMessage = "could not be sent (" + errorMessage + ")";
+        }
+        else
+        {
+            logMessage = "queued";
+        }
+        String smsDesc = sms.getLogName();
         
-            boolean exists = (cursor.getCount() > 0);
-            cursor.close();
-            if (exists)
-            {
-                log(sms.getLogName() + " already sent, skipping");
-                return;
-            }
-            
-            ContentValues values = new ContentValues();
-            values.put("server_id", serverId);
-            values.put("status", App.STATUS_QUEUED);
-            db.insert("sms_status", null, values);
-            
-            db.close();
-        }         
+        if (serverId != null)
+        {        
+            app.log("Notifying server " + smsDesc + " " + logMessage);            
 
+            new HttpTask(app).execute(
+                new BasicNameValuePair("id", serverId),
+                new BasicNameValuePair("status", status),
+                new BasicNameValuePair("error", errorMessage),
+                new BasicNameValuePair("action", App.ACTION_SEND_STATUS)
+            );
+        }
+        else
+        {
+            app.log(smsDesc + " " + logMessage);
+        }
+    }
+    
+    public synchronized void retryStuckMessages(boolean retryAll)
+    {
+        retryStuckOutgoingMessages(retryAll);
+        retryStuckIncomingMessages(retryAll);
+    }
+    
+    public synchronized int getStuckMessageCount()
+    {
+        return outgoingSmsMap.size() + incomingSmsMap.size();
+    }
+    
+    public synchronized void retryStuckOutgoingMessages(boolean retryAll)
+    {
+        for (Entry<String, QueuedOutgoingSms> entry : outgoingSmsMap.entrySet())
+        {
+            QueuedOutgoingSms queuedSms = entry.getValue();
+            if (retryAll || queuedSms.canAttemptNow())
+            {
+                queuedSms.nextAttemptTime = 0;                
+                
+                log("Retrying sending " +queuedSms.sms.getLogName() 
+                        + " to " + queuedSms.sms.getTo());
+                
+                trySendSMS(queuedSms.sms);
+            }            
+        }
+    }
+        
+    public synchronized void retryStuckIncomingMessages(boolean retryAll)
+    {        
+        for (Entry<String, QueuedIncomingSms> entry : incomingSmsMap.entrySet())
+        {
+            QueuedIncomingSms queuedSms = entry.getValue();
+            if (retryAll || queuedSms.canAttemptNow())
+            {
+                queuedSms.nextAttemptTime = 0;                
+                
+                log("Retrying forwarding SMS from " + queuedSms.sms.getOriginatingAddress());
+                
+                trySendMessageToServer(queuedSms.sms);
+            }            
+        }        
+    }
+    
+    public synchronized void notifyOutgoingMessageStatus(String id, int resultCode)
+    {
+        QueuedOutgoingSms queuedSms = outgoingSmsMap.get(id);
+        
+        if (queuedSms == null)
+        {
+            return;
+        }
+        
+        OutgoingSmsMessage sms = queuedSms.sms;                
+        
+        switch (resultCode) {
+            case Activity.RESULT_OK:
+                this.notifyStatus(sms, App.STATUS_SENT, "");
+                break;
+            case SmsManager.RESULT_ERROR_GENERIC_FAILURE:                                
+                this.notifyStatus(sms, App.STATUS_FAILED, "generic failure");
+                break;
+            case SmsManager.RESULT_ERROR_RADIO_OFF:
+                this.notifyStatus(sms, App.STATUS_FAILED, "radio off");
+                break;
+            case SmsManager.RESULT_ERROR_NO_SERVICE:
+                this.notifyStatus(sms, App.STATUS_FAILED, "no service");
+                break;
+            case SmsManager.RESULT_ERROR_NULL_PDU:     
+                this.notifyStatus(sms, App.STATUS_FAILED, "null PDU");
+                break;
+            default:
+                this.notifyStatus(sms, App.STATUS_FAILED, "unknown error");
+                break;
+        }
+
+        switch (resultCode) {            
+            case SmsManager.RESULT_ERROR_GENERIC_FAILURE:                
+            case SmsManager.RESULT_ERROR_RADIO_OFF:
+            case SmsManager.RESULT_ERROR_NO_SERVICE:
+                if (!queuedSms.scheduleNextAttempt())
+                {                    
+                    outgoingSmsMap.remove(id);
+                }
+                break;
+            default:
+                outgoingSmsMap.remove(id);
+                break;
+        }        
+        
+    }
+    
+    public synchronized void sendSMS(OutgoingSmsMessage sms)
+    {       
+        String id = sms.getId();
+        if (outgoingSmsMap.containsKey(id))
+        {
+            log(sms.getLogName() + " already sent, skipping");
+            return;
+        }
+
+        QueuedOutgoingSms queueEntry = new QueuedOutgoingSms(sms);
+        outgoingSmsMap.put(id, queueEntry);
+        
+        log("Sending " +sms.getLogName() + " to " + sms.getTo());        
+        trySendSMS(sms);
+    }
+    
+    private void trySendSMS(OutgoingSmsMessage sms)
+    {
         SmsManager smgr = SmsManager.getDefault();
                 
-        Intent intent = new Intent(App.SEND_STATUS_INTENT);
-        intent.putExtra("serverId", serverId);
+        Intent intent = new Intent(context, MessageStatusNotifier.class);
+        intent.putExtra("id", sms.getId());
         
         PendingIntent sentIntent = PendingIntent.getBroadcast(
                 this.context,
                 0,
                 intent,
                 PendingIntent.FLAG_ONE_SHOT);
-        
-        log("Sending " +sms.getLogName() + " to " + sms.getTo());
-        smgr.sendTextMessage(sms.getTo(), null, sms.getMessage(), sentIntent, null);
+                
+        smgr.sendTextMessage(sms.getTo(), null, sms.getMessage(), sentIntent, null);        
     }
     
     private class PollerTask extends HttpTask {
@@ -245,4 +416,86 @@ public class App {
         }                
     }
     
+
+    private class ForwarderTask extends HttpTask {
+
+        private SmsMessage originalSms;
+
+        public ForwarderTask(SmsMessage originalSms) {
+            super(app);
+            this.originalSms = originalSms;
+        }
+
+        @Override
+        protected String getDefaultToAddress()
+        {
+            return originalSms.getOriginatingAddress();
+        }        
+                
+        @Override
+        protected void handleResponse(HttpResponse response) throws Exception {
+            
+            for (OutgoingSmsMessage reply : parseResponseXML(response)) {
+                app.sendSMS(reply);
+            }                                        
+            
+            app.notifyIncomingMessageStatus(originalSms, true);            
+        }
+        
+        @Override
+        protected void handleFailure()
+        {
+            app.notifyIncomingMessageStatus(originalSms, false);
+        }        
+    }        
+    
+    private String getSmsId(SmsMessage sms)
+    {
+        return sms.getOriginatingAddress() + ":" + sms.getMessageBody() + ":" + sms.getTimestampMillis();
+    }
+    
+    public synchronized void sendMessageToServer(SmsMessage sms) 
+    {
+        String id = getSmsId(sms);
+        if (incomingSmsMap.containsKey(id))
+        {
+            log("Duplicate incoming SMS, skipping");
+            return;
+        }        
+                
+        QueuedIncomingSms queuedSms = new QueuedIncomingSms(sms);        
+        incomingSmsMap.put(id, queuedSms);
+                
+        app.log("Received SMS from " + sms.getOriginatingAddress());
+        
+        trySendMessageToServer(sms);
+    }    
+    
+    public void trySendMessageToServer(SmsMessage sms) 
+    {
+        String message = sms.getMessageBody();
+        String sender = sms.getOriginatingAddress();
+        
+        new ForwarderTask(sms).execute(
+            new BasicNameValuePair("from", sender),
+            new BasicNameValuePair("message", message),
+            new BasicNameValuePair("action", App.ACTION_INCOMING)
+        );
+
+    }
+    
+    private synchronized void notifyIncomingMessageStatus(SmsMessage sms, boolean success)
+    {
+        String id = getSmsId(sms);
+
+        QueuedIncomingSms queuedSms = incomingSmsMap.get(id);
+        
+        if (queuedSms != null)
+        {
+            if (success || !queuedSms.scheduleNextAttempt())
+            {             
+                incomingSmsMap.remove(id);
+            }               
+        }
+    }
 }

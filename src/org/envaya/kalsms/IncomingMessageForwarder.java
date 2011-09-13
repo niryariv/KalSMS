@@ -5,79 +5,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.http.HttpResponse;
 
 import org.apache.http.message.BasicNameValuePair;
 
 public class IncomingMessageForwarder extends BroadcastReceiver {
 
-    private App app;
-    
-    private List<SmsStatus> retryList = new ArrayList<SmsStatus>();
-    
-    private class SmsStatus
-    {
-        public SmsMessage smsMessage;
-        public long nextAttemptTime;
-        public int numAttempts = 0;
-        
-    }
-
-    private class ForwarderTask extends HttpTask {
-
-        private SmsMessage originalSms;
-
-        public ForwarderTask(SmsMessage originalSms) {
-            super(app);
-            this.originalSms = originalSms;
-        }
-
-        @Override
-        protected String getDefaultToAddress()
-        {
-            return originalSms.getOriginatingAddress();
-        }        
-                
-        @Override
-        protected void handleResponse(HttpResponse response) throws Exception {
-            for (OutgoingSmsMessage reply : parseResponseXML(response)) {
-                app.sendSMS(reply);
-            }                                        
-        }
-    }        
-    
-    public void sendMessageToServer(SmsMessage sms) 
-    {
-        String serverUrl = app.getServerUrl();
-        String message = sms.getMessageBody();
-        String sender = sms.getOriginatingAddress();
-
-        app.log("Received SMS from " + sender);
-
-        if (serverUrl.length() == 0) {
-            app.log("Can't forward SMS to server; Server URL not set");                        
-        } else {
-            app.log("Forwarding incoming SMS to server");
-
-            new ForwarderTask(sms).execute(
-                new BasicNameValuePair("from", sender),
-                new BasicNameValuePair("message", message),
-                new BasicNameValuePair("action", App.ACTION_INCOMING)
-            );
-        }
-    }
-
-    public void smsReceived(Intent intent) {
-
-        for (SmsMessage sms : getMessagesFromIntent(intent)) {
-            sendMessageToServer(sms);
-
-            //DeleteSMSFromInbox(context, mesg);
-        }
-
-    }
+    private App app;   
 
     @Override
     // source: http://www.devx.com/wireless/Article/39495/1954
@@ -88,7 +22,12 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
             String action = intent.getAction();
 
             if (action.equals("android.provider.Telephony.SMS_RECEIVED")) {
-                smsReceived(intent);
+                
+                for (SmsMessage sms : getMessagesFromIntent(intent)) {
+                    app.sendMessageToServer(sms);
+
+                    //DeleteSMSFromInbox(context, mesg);
+                }
             }
         } catch (Throwable ex) {
             app.logError("Unexpected error in IncomingMessageForwarder", ex, true);

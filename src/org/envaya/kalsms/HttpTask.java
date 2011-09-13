@@ -19,7 +19,11 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -36,6 +40,14 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         this.app = app;
     }
         
+    public HttpClient getHttpClient()
+    {
+        HttpParams httpParameters = new BasicHttpParams();
+        HttpConnectionParams.setConnectionTimeout(httpParameters, 8000);
+        HttpConnectionParams.setSoTimeout(httpParameters, 8000);                    
+        return new DefaultHttpClient(httpParameters);        
+    }            
+    
     private String getSignature(String url, BasicNameValuePair... params)
     {
         try {
@@ -78,6 +90,12 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         try
         {  
             String url = app.getServerUrl();
+            
+            if (url.length() == 0) {
+                app.log("Can't contact server; Server URL not set");                        
+                return null;
+            }            
+            
             HttpPost post = new HttpPost(url);
                        
             post.setEntity(new UrlEncodedFormEntity(Arrays.asList(params)));            
@@ -88,7 +106,7 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
             post.setHeader("X-Kalsms-PhoneNumber", app.getPhoneNumber());
             post.setHeader("X-Kalsms-Signature", signature);
             
-            HttpClient client = app.getHttpClient();
+            HttpClient client = getHttpClient();
             HttpResponse response = client.execute(post);            
             
             int statusCode = response.getStatusLine().getStatusCode();
