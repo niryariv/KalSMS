@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:background="#333333">
+<ScrollView  android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:layout_weight="1">
+<TextView 
+    android:linksClickable="true"
+    android:drawablePadding="5px"
+    android:layout_width="fill_parent" 
+    android:layout_height="fill_parent" 
+    android:id="@+id/help" 
+    android:textColor="#FFFFFF" 
+    android:layout_margin="5px">        
+    </TextView>
+</ScrollView>      
+</LinearLayout>
+  
