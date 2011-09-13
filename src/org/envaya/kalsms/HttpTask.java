@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
@@ -48,10 +49,10 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         return new DefaultHttpClient(httpParameters);        
     }            
     
-    private String getSignature(String url, BasicNameValuePair... params)
+    private String getSignature(String url, List<BasicNameValuePair> params)
     {
         try {
-            Arrays.sort(params, new Comparator() {
+            Collections.sort(params, new Comparator() {
                 public int compare(Object o1, Object o2)
                 {
                     return ((BasicNameValuePair)o1).getName().compareTo(((BasicNameValuePair)o2).getName());
@@ -97,13 +98,17 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
             }            
             
             HttpPost post = new HttpPost(url);
-                       
-            post.setEntity(new UrlEncodedFormEntity(Arrays.asList(params)));            
-                        
-            String signature = this.getSignature(url, params);
             
-            post.setHeader("X-Kalsms-Version", "2");
-            post.setHeader("X-Kalsms-PhoneNumber", app.getPhoneNumber());
+            List<BasicNameValuePair> paramList 
+                    = new ArrayList<BasicNameValuePair>(Arrays.asList(params));            
+            
+            paramList.add(new BasicNameValuePair("version", "2"));
+            paramList.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));
+                       
+            post.setEntity(new UrlEncodedFormEntity(paramList));            
+                        
+            String signature = this.getSignature(url, paramList);
+            
             post.setHeader("X-Kalsms-Signature", signature);
             
             HttpClient client = getHttpClient();
@@ -126,11 +131,17 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
                 return null;
             }            
         } 
-        catch (Throwable ex) 
+        catch (IOException ex) 
         {
             app.logError("Error while contacting server", ex);
             return null;
         }
+        catch (Throwable ex) 
+        {
+            app.logError("Unexpected error while contacting server", ex, true);
+            return null;
+        }
+        
     }
         
     protected String getDefaultToAddress()

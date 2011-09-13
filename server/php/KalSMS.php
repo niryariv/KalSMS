@@ -18,7 +18,7 @@ class KalSMS
     
     static function new_from_request()
     {
-        $version = @$_SERVER['HTTP_X_KALSMS_VERSION'];        
+        $version = @$_POST['version'];        
     
         return new KalSMS();
     }    
@@ -56,7 +56,7 @@ class KalSMS
     
     function get_request_phone_number()
     {
-        return @$_SERVER['HTTP_X_KALSMS_PHONENUMBER'];
+        return @$_POST['phone_number'];
     }        
     
     function is_validated_request($correct_password)
