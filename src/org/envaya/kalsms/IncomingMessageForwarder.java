@@ -17,7 +17,7 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
     // source: http://www.devx.com/wireless/Article/39495/1954
     public void onReceive(Context context, Intent intent) {
         try {
-            this.app = App.getInstance(context);
+            this.app = App.getInstance(context.getApplicationContext());
 
             String action = intent.getAction();
 

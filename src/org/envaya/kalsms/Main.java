@@ -98,7 +98,7 @@ public class Main extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        this.app = App.getInstance(this.getApplication());
+        this.app = App.getInstance(getApplicationContext());
                 
         setContentView(R.layout.main);
         PreferenceManager.setDefaultValues(this, R.xml.prefs, false);               
@@ -161,7 +161,7 @@ public class Main extends Activity {
         MenuItem item = menu.findItem(R.id.retry_now);
         int stuckMessages = app.getStuckMessageCount();
         item.setEnabled(stuckMessages > 0);
-        item.setTitle("Retry Now (" + stuckMessages + ")");
+        item.setTitle("Retry Fwd (" + stuckMessages + ")");
         return true;
     }
 	    

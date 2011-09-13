@@ -13,7 +13,7 @@ public class MessageStatusNotifier extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        App app = App.getInstance(context);
+        App app = App.getInstance(context.getApplicationContext());
         
         String id = intent.getExtras().getString("id");        
 

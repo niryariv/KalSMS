@@ -27,11 +27,8 @@
             android:entryValues="@array/check_intervals_values"
     ></ListPreference>    
 
-<!--
     <CheckBoxPreference
-            android:key="detailed_log" 
-            android:title="Detailed log messages?" 
-            android:disableDependentsState="false" 		
-    ></CheckBoxPreference>	
-    -->
+            android:key="launch_on_boot" 
+            android:title="Launch automatically?" 
+    ></CheckBoxPreference>	    
 </PreferenceScreen>

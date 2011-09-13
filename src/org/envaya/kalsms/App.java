@@ -236,6 +236,11 @@ public class App {
         return Integer.parseInt(settings.getString("outgoing_interval", "0"));        
     }    
     
+    public boolean getLaunchOnBoot()
+    {                
+        return settings.getBoolean("launch_on_boot", true);
+    }        
+    
     public String getPassword()
     {
         return settings.getString("password", "");
