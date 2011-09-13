@@ -5,9 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
-import org.apache.http.HttpResponse;
 
-import org.apache.http.message.BasicNameValuePair;
 
 public class IncomingMessageForwarder extends BroadcastReceiver {
 

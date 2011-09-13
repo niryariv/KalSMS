@@ -10,16 +10,14 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.util.Log;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 
@@ -44,7 +42,7 @@ public class App {
     public Context context;
     public SharedPreferences settings;
     
-    private class QueuedMessage<T>
+    private abstract class QueuedMessage<T>
     {
         public T sms;
         public long nextAttemptTime = 0;
@@ -52,46 +50,61 @@ public class App {
                 
         public boolean canAttemptNow()
         {
-            return (nextAttemptTime > 0 && nextAttemptTime < System.currentTimeMillis());
+            return (nextAttemptTime > 0 && nextAttemptTime < SystemClock.elapsedRealtime());
         }
-                
+
         public boolean scheduleNextAttempt()
         {            
-            long now = System.currentTimeMillis();       
-            numAttempts++;
+            long now = SystemClock.elapsedRealtime();
+            numAttempts++;            
             
-            int sec = 1000;
-            
-            if (numAttempts == 1)
-            {
-                log("1st failure; retry in 1 minute");
-                nextAttemptTime = now + sec * 60; // 1 minute
-                return true;
-            }
-            else if (numAttempts == 2)
-            {
-                log("2nd failure; retry in 10 minutes");
-                nextAttemptTime = now + sec * 60 * 10; // 10 min
-                return true;
-            }
-            else if (numAttempts == 3)
-            {
-                log("3rd failure; retry in 1 hour");
-                nextAttemptTime = now + sec * 60 * 60; // 1 hour
-                return true;
-            }
-            else if (numAttempts == 4)
-            {
-                log("4th failure: retry in 1 day");
-                nextAttemptTime = now + sec * 60 * 60 * 24; // 1 day
-                return true;
-            }            
-            else
+            if (numAttempts > 4)
             {
                 log("5th failure: giving up");
                 return false;
             }
+            
+            int second = 1000;            
+            int minute = second * 60;            
+            
+            if (numAttempts == 1)
+            {
+                log("1st failure; retry in 1 minute");
+                nextAttemptTime = now + 1 * minute; 
+            }
+            else if (numAttempts == 2)
+            {
+                log("2nd failure; retry in 10 minutes");
+                nextAttemptTime = now + 10 * minute; 
+            }
+            else if (numAttempts == 3)
+            {
+                log("3rd failure; retry in 1 hour");
+                nextAttemptTime = now + 60 * minute; 
+            }
+            else
+            {
+                log("4th failure: retry in 1 day");
+                nextAttemptTime = now + 24 * 60 * minute; 
+            }   
+            
+            AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);        
+            
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
+                0,
+                getAttemptIntent(), 
+                0);
+
+            alarm.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                nextAttemptTime,
+                pendingIntent);                        
+            
+            return true;            
         }
+        
+        public abstract void attemptNow();
+        protected abstract Intent getAttemptIntent();            
     }                            
     
     private class QueuedIncomingSms extends QueuedMessage<SmsMessage> {
@@ -99,15 +112,42 @@ public class App {
         {
             this.sms = sms;
         }
-    }
-    
+        
+        public void attemptNow()
+        {
+            log("Retrying forwarding SMS from " + sms.getOriginatingAddress());                
+            trySendMessageToServer(sms);
+        }
+        
+        protected Intent getAttemptIntent()
+        {
+            Intent intent = new Intent(context, IncomingMessageRetry.class);
+            intent.setData(Uri.parse("kalsms://incoming/" + getSmsId(sms)));
+            return intent;
+        }
+    }    
+               
     private class QueuedOutgoingSms extends QueuedMessage<OutgoingSmsMessage> {
         public QueuedOutgoingSms(OutgoingSmsMessage sms)
         {
             this.sms = sms;
+        }
+
+        public void attemptNow()
+        {
+            log("Retrying sending " +sms.getLogName() + " to " + sms.getTo());                
+            trySendSMS(sms);           
+        }
+        
+        protected Intent getAttemptIntent()
+        {
+            Intent intent = new Intent(context, OutgoingMessageRetry.class);
+            intent.setData(Uri.parse("kalsms://outgoing/" + sms.getId()));
+            log("id=" + sms.getId());
+            return intent;
         }        
     }            
-    
+            
     protected App(Context context)
     {
         this.context = context;
@@ -134,7 +174,7 @@ public class App {
         
         Intent broadcast = new Intent(App.LOG_INTENT);
         broadcast.putExtra("message", msg);
-        context.sendBroadcast(broadcast);        
+        context.sendBroadcast(broadcast);
     }
 
     public void checkOutgoingMessages()
@@ -160,7 +200,7 @@ public class App {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
                 0,
                 new Intent(context, OutgoingMessagePoller.class), 
-                0);     
+                0);
         
         alarm.cancel(pendingIntent);        
         
@@ -172,7 +212,7 @@ public class App {
                 AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 SystemClock.elapsedRealtime(),                                
                 pollSeconds * 1000, 
-                pendingIntent);        
+                pendingIntent);
             log("Checking for outgoing messages every " + pollSeconds + " sec");            
         }
         else
@@ -282,10 +322,10 @@ public class App {
         }
     }
     
-    public synchronized void retryStuckMessages(boolean retryAll)
+    public synchronized void retryStuckMessages()
     {
-        retryStuckOutgoingMessages(retryAll);
-        retryStuckIncomingMessages(retryAll);
+        retryStuckOutgoingMessages();
+        retryStuckIncomingMessages();
     }
     
     public synchronized int getStuckMessageCount()
@@ -293,36 +333,19 @@ public class App {
         return outgoingSmsMap.size() + incomingSmsMap.size();
     }
     
-    public synchronized void retryStuckOutgoingMessages(boolean retryAll)
+    public synchronized void retryStuckOutgoingMessages()
     {
-        for (Entry<String, QueuedOutgoingSms> entry : outgoingSmsMap.entrySet())
+        for (QueuedOutgoingSms queuedSms : outgoingSmsMap.values())
         {
-            QueuedOutgoingSms queuedSms = entry.getValue();
-            if (retryAll || queuedSms.canAttemptNow())
-            {
-                queuedSms.nextAttemptTime = 0;                
-                
-                log("Retrying sending " +queuedSms.sms.getLogName() 
-                        + " to " + queuedSms.sms.getTo());
-                
-                trySendSMS(queuedSms.sms);
-            }            
+            queuedSms.attemptNow();
         }
     }
         
-    public synchronized void retryStuckIncomingMessages(boolean retryAll)
+    public synchronized void retryStuckIncomingMessages()
     {        
-        for (Entry<String, QueuedIncomingSms> entry : incomingSmsMap.entrySet())
+        for (QueuedIncomingSms queuedSms : incomingSmsMap.values())
         {
-            QueuedIncomingSms queuedSms = entry.getValue();
-            if (retryAll || queuedSms.canAttemptNow())
-            {
-                queuedSms.nextAttemptTime = 0;                
-                
-                log("Retrying forwarding SMS from " + queuedSms.sms.getOriginatingAddress());
-                
-                trySendMessageToServer(queuedSms.sms);
-            }            
+            queuedSms.attemptNow();
         }        
     }
     
@@ -395,7 +418,7 @@ public class App {
         SmsManager smgr = SmsManager.getDefault();
                 
         Intent intent = new Intent(context, MessageStatusNotifier.class);
-        intent.putExtra("id", sms.getId());
+        intent.setData(Uri.parse("kalsms://outgoing/" + sms.getId()));
         
         PendingIntent sentIntent = PendingIntent.getBroadcast(
                 this.context,
@@ -503,4 +526,23 @@ public class App {
             }               
         }
     }
+    
+    public synchronized void retryIncomingMessage(String id)
+    {
+        QueuedIncomingSms queuedSms = incomingSmsMap.get(id);
+        if (queuedSms != null)
+        {
+            queuedSms.attemptNow();
+        }        
+    }
+    
+    public synchronized void retryOutgoingMessage(String id)
+    {
+        QueuedOutgoingSms queuedSms = outgoingSmsMap.get(id);
+        if (queuedSms != null)
+        {
+            queuedSms.attemptNow();
+        }        
+    }
+    
 }

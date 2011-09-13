@@ -35,6 +35,12 @@
         <receiver android:name=".OutgoingMessagePoller">
         </receiver>
         
+        <receiver android:name=".OutgoingMessageRetry">
+        </receiver>        
+        
+        <receiver android:name=".IncomingMessageRetry">
+        </receiver>                
+        
         <receiver android:name=".BootReceiver">
             <intent-filter> 
                  <action android:name="android.intent.action.BOOT_COMPLETED" /> 

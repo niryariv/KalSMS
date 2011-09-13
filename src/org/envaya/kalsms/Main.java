@@ -131,7 +131,7 @@ public class Main extends Activity {
             app.checkOutgoingMessages();
             return true;
         case R.id.retry_now:
-            app.retryStuckMessages(true);
+            app.retryStuckMessages();
             return true;           
         case R.id.help:
             startActivity(new Intent(this, Help.class));
