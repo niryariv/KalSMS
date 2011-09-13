@@ -18,6 +18,11 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {        
         app = App.getInstance(context.getApplicationContext());
         
+        if (!app.isEnabled())
+        {
+            return;
+        }
+        
         try {
             String action = intent.getAction();
 

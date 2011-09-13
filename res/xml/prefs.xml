@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen
   xmlns:android="http://schemas.android.com/apk/res/android">
+      
+    <CheckBoxPreference
+            android:key="enabled" 
+            android:title="Enable KalSMS?" 
+            android:defaultValue='false'
+            android:summaryOn="All new SMS will be forwarded between phone and server"
+            android:summaryOff="New SMS will not be forwarded between phone and server"
+    ></CheckBoxPreference>      
+      
     <EditTextPreference 
             android:key="server_url" 
             android:title="Server URL" 

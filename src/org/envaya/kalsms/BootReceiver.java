@@ -11,7 +11,11 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) 
     {
         App app = App.getInstance(context.getApplicationContext());
-        
+        if (!app.isEnabled())
+        {
+            return;
+        }        
+                
         app.setOutgoingMessageAlarm();
         
         if (app.getLaunchOnBoot())

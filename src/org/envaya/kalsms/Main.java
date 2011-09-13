@@ -104,18 +104,19 @@ public class Main extends Activity {
         
         TextView info = (TextView) this.findViewById(R.id.info);
         
-        info.setText(Html.fromHtml("<b>SMS Gateway running.</b><br />"));                        
-        info.append(Html.fromHtml("<b>Press Menu to edit settings.</b><br />"));                
-        
-        showLogMessage("Server URL is: " + app.getDisplayString(app.getServerUrl()));
-        showLogMessage("Your phone number is: " + app.getDisplayString(app.getPhoneNumber()));
-        
         info.setMovementMethod(new ScrollingMovementMethod());        
         
         IntentFilter logReceiverFilter = new IntentFilter();        
         logReceiverFilter.addAction(App.LOG_INTENT);
-        registerReceiver(logReceiver, logReceiverFilter);        
+        registerReceiver(logReceiver, logReceiverFilter);                
+                 
+        info.append(Html.fromHtml(
+            app.isEnabled() ? "<b>SMS gateway running.</b><br />" : "<b>SMS gateway disabled.</b><br />"));
         
+        info.append("Server URL is: " + app.getDisplayString(app.getServerUrl()) + "\n");
+        info.append("Your phone number is: " + app.getDisplayString(app.getPhoneNumber()) + "\n");
+        info.append(Html.fromHtml("<b>Press Menu to edit settings.</b><br />"));
+
         app.setOutgoingMessageAlarm();
     }
     

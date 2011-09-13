@@ -67,15 +67,18 @@ public class App {
 
         int pollSeconds = getOutgoingPollSeconds();
 
-        if (pollSeconds > 0) {
-            alarm.setRepeating(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime(),
-                    pollSeconds * 1000,
-                    pendingIntent);
-            log("Checking for outgoing messages every " + pollSeconds + " sec");
-        } else {
-            log("Not checking for outgoing messages.");
+        if (isEnabled())
+        {        
+            if (pollSeconds > 0) {
+                alarm.setRepeating(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        SystemClock.elapsedRealtime(),
+                        pollSeconds * 1000,
+                        pendingIntent);
+                log("Checking for outgoing messages every " + pollSeconds + " sec");
+            } else {
+                log("Not checking for outgoing messages.");
+            }
         }
     }
 
@@ -101,6 +104,11 @@ public class App {
 
     public boolean getLaunchOnBoot() {
         return settings.getBoolean("launch_on_boot", false);
+    }
+    
+    public boolean isEnabled()
+    {
+        return settings.getBoolean("enabled", false);
     }
     
     public boolean getKeepInInbox() 
