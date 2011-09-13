@@ -33,14 +33,21 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> {
+public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
 
-    private App app;
+    protected App app;
     
-    public HttpTask(App app)
+    protected String url;    
+    protected List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+    
+    public HttpTask(App app, BasicNameValuePair... paramsArr)
     {
         super();
-        this.app = app;
+        this.app = app;        
+        this.url = app.getServerUrl();
+        params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));            
+        params.add(new BasicNameValuePair("version", "2"));
+        params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));                       
     }
         
     public HttpClient getHttpClient()
@@ -51,7 +58,7 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         return new DefaultHttpClient(httpParameters);        
     }            
     
-    private String getSignature(String url, List<BasicNameValuePair> params)
+    private String getSignature()
             throws NoSuchAlgorithmException, UnsupportedEncodingException
     {
         Collections.sort(params, new Comparator() {
@@ -83,27 +90,19 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         return new String(Base64Coder.encode(digest));            
     }    
     
-    protected HttpResponse doInBackground(BasicNameValuePair... params) {
+    protected HttpResponse doInBackground(String... ignored) {
         try
         {  
-            String url = app.getServerUrl();
-            
             if (url.length() == 0) {
                 app.log("Can't contact server; Server URL not set");                        
                 return null;
             }            
             
             HttpPost post = new HttpPost(url);
-            
-            List<BasicNameValuePair> paramList 
-                    = new ArrayList<BasicNameValuePair>(Arrays.asList(params));            
-            
-            paramList.add(new BasicNameValuePair("version", "2"));
-            paramList.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));
-                       
-            post.setEntity(new UrlEncodedFormEntity(paramList));            
+                  
+            post.setEntity(new UrlEncodedFormEntity(params));            
                         
-            String signature = this.getSignature(url, paramList);
+            String signature = getSignature();
             
             post.setHeader("X-Kalsms-Signature", signature);
             
@@ -145,10 +144,10 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         return "";
     }
     
-    protected List<OutgoingSmsMessage> parseResponseXML(HttpResponse response)
+    protected List<OutgoingMessage> parseResponseXML(HttpResponse response)
              throws IOException, ParserConfigurationException, SAXException
     {
-        List<OutgoingSmsMessage> messages = new ArrayList<OutgoingSmsMessage>();
+        List<OutgoingMessage> messages = new ArrayList<OutgoingMessage>();
         InputStream responseStream = response.getEntity().getContent();
         DocumentBuilder xmlBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document xml = xmlBuilder.parse(responseStream);
@@ -156,7 +155,8 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
         NodeList smsNodes = xml.getElementsByTagName("Sms");
         for (int i = 0; i < smsNodes.getLength(); i++) {
             Element smsElement = (Element) smsNodes.item(i);
-            OutgoingSmsMessage sms = new OutgoingSmsMessage();
+            
+            OutgoingMessage sms = new OutgoingMessage(app);
 
             sms.setFrom(app.getPhoneNumber());
             
@@ -169,7 +169,7 @@ public class HttpTask extends AsyncTask<BasicNameValuePair, Void, HttpResponse> 
             sms.setServerId(serverId.equals("") ? null : serverId);
 
             Node firstChild = smsElement.getFirstChild();                
-            sms.setMessage(firstChild != null ? firstChild.getNodeValue(): "");            
+            sms.setMessageBody(firstChild != null ? firstChild.getNodeValue(): "");            
             
             messages.add(sms);
         }

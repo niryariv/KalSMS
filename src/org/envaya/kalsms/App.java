@@ -1,26 +1,17 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.envaya.kalsms;
 
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
-import android.telephony.SmsMessage;
 import android.util.Log;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 
 public class App {
@@ -34,103 +25,12 @@ public class App {
     public static final String LOG_NAME = "KALSMS";
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
     private static App app;
-    private Map<String, QueuedIncomingSms> incomingSmsMap = new HashMap<String, QueuedIncomingSms>();
-    private Map<String, QueuedOutgoingSms> outgoingSmsMap = new HashMap<String, QueuedOutgoingSms>();
+    
+    private Map<String, IncomingMessage> incomingSmsMap = new HashMap<String, IncomingMessage>();
+    private Map<String, OutgoingMessage> outgoingSmsMap = new HashMap<String, OutgoingMessage>();
+    
     public Context context;
     public SharedPreferences settings;
-
-    private abstract class QueuedMessage<T> {
-
-        public T sms;
-        public long nextAttemptTime = 0;
-        public int numAttempts = 0;
-
-        public boolean canAttemptNow() {
-            return (nextAttemptTime > 0 && nextAttemptTime < SystemClock.elapsedRealtime());
-        }
-
-        public boolean scheduleNextAttempt() {
-            long now = SystemClock.elapsedRealtime();
-            numAttempts++;
-
-            if (numAttempts > 4) {
-                log("5th failure: giving up");
-                return false;
-            }
-
-            int second = 1000;
-            int minute = second * 60;
-
-            if (numAttempts == 1) {
-                log("1st failure; retry in 1 minute");
-                nextAttemptTime = now + 1 * minute;
-            } else if (numAttempts == 2) {
-                log("2nd failure; retry in 10 minutes");
-                nextAttemptTime = now + 10 * minute;
-            } else if (numAttempts == 3) {
-                log("3rd failure; retry in 1 hour");
-                nextAttemptTime = now + 60 * minute;
-            } else {
-                log("4th failure: retry in 1 day");
-                nextAttemptTime = now + 24 * 60 * minute;
-            }
-
-            AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
-                    0,
-                    getAttemptIntent(),
-                    0);
-
-            alarm.set(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    nextAttemptTime,
-                    pendingIntent);
-
-            return true;
-        }
-
-        public abstract void attemptNow();
-
-        protected abstract Intent getAttemptIntent();
-    }
-
-    private class QueuedIncomingSms extends QueuedMessage<SmsMessage> {
-
-        public QueuedIncomingSms(SmsMessage sms) {
-            this.sms = sms;
-        }
-
-        public void attemptNow() {
-            log("Retrying forwarding SMS from " + sms.getOriginatingAddress());
-            trySendMessageToServer(sms);
-        }
-
-        protected Intent getAttemptIntent() {
-            Intent intent = new Intent(context, IncomingMessageRetry.class);
-            intent.setData(Uri.parse("kalsms://incoming/" + getSmsId(sms)));
-            return intent;
-        }
-    }
-
-    private class QueuedOutgoingSms extends QueuedMessage<OutgoingSmsMessage> {
-
-        public QueuedOutgoingSms(OutgoingSmsMessage sms) {
-            this.sms = sms;
-        }
-
-        public void attemptNow() {
-            log("Retrying sending " + sms.getLogName() + " to " + sms.getTo());
-            trySendSMS(sms);
-        }
-
-        protected Intent getAttemptIntent() {
-            Intent intent = new Intent(context, OutgoingMessageRetry.class);
-            intent.setData(Uri.parse("kalsms://outgoing/" + sms.getId()));
-            log("id=" + sms.getId());
-            return intent;
-        }
-    }
 
     protected App(Context context) {
         this.context = context;
@@ -144,24 +44,12 @@ public class App {
         return app;
     }
 
-    public void debug(String msg) {
-        Log.d(LOG_NAME, msg);
-    }
-
-    public void log(String msg) {
-        Log.d(LOG_NAME, msg);
-
-        Intent broadcast = new Intent(App.LOG_INTENT);
-        broadcast.putExtra("message", msg);
-        context.sendBroadcast(broadcast);
-    }
-
-    public void checkOutgoingMessages() {
+    public void checkOutgoingMessages() 
+    {
         String serverUrl = getServerUrl();
         if (serverUrl.length() > 0) {
             log("Checking for outgoing messages");
-            new PollerTask().execute(
-                    new BasicNameValuePair("action", App.ACTION_OUTGOING));
+            new PollerTask(this).execute();
         } else {
             log("Can't check outgoing messages; server URL not set");
         }
@@ -188,28 +76,6 @@ public class App {
             log("Checking for outgoing messages every " + pollSeconds + " sec");
         } else {
             log("Not checking for outgoing messages.");
-        }
-    }
-
-    public void logError(Throwable ex) {
-        logError("ERROR", ex);
-    }
-
-    public void logError(String msg, Throwable ex) {
-        logError(msg, ex, false);
-    }
-
-    public void logError(String msg, Throwable ex, boolean detail) {
-        log(msg + ": " + ex.getClass().getName() + ": " + ex.getMessage());
-
-        if (detail) {
-            for (StackTraceElement elem : ex.getStackTrace()) {
-                log(elem.getClassName() + ":" + elem.getMethodName() + ":" + elem.getLineNumber());
-            }
-            Throwable innerEx = ex.getCause();
-            if (innerEx != null) {
-                logError("Inner exception:", innerEx, true);
-            }
         }
     }
 
@@ -246,7 +112,7 @@ public class App {
         return settings.getString("password", "");
     }
 
-    private void notifyStatus(OutgoingSmsMessage sms, String status, String errorMessage) {
+    private void notifyStatus(OutgoingMessage sms, String status, String errorMessage) {
         String serverId = sms.getServerId();
 
         String logMessage;
@@ -262,11 +128,12 @@ public class App {
         if (serverId != null) {
             app.log("Notifying server " + smsDesc + " " + logMessage);
 
-            new HttpTask(app).execute(
-                    new BasicNameValuePair("id", serverId),
-                    new BasicNameValuePair("status", status),
-                    new BasicNameValuePair("error", errorMessage),
-                    new BasicNameValuePair("action", App.ACTION_SEND_STATUS));
+            new HttpTask(app,
+                new BasicNameValuePair("id", serverId),
+                new BasicNameValuePair("status", status),
+                new BasicNameValuePair("error", errorMessage),
+                new BasicNameValuePair("action", App.ACTION_SEND_STATUS)                    
+            ).execute();
         } else {
             app.log(smsDesc + " " + logMessage);
         }
@@ -282,25 +149,35 @@ public class App {
     }
 
     public synchronized void retryStuckOutgoingMessages() {
-        for (QueuedOutgoingSms queuedSms : outgoingSmsMap.values()) {
-            queuedSms.attemptNow();
+        for (OutgoingMessage sms : outgoingSmsMap.values()) {
+            sms.retryNow();
         }
     }
 
     public synchronized void retryStuckIncomingMessages() {
-        for (QueuedIncomingSms queuedSms : incomingSmsMap.values()) {
-            queuedSms.attemptNow();
+        for (IncomingMessage sms : incomingSmsMap.values()) {
+            sms.retryNow();
         }
     }
+    
+    public synchronized void setIncomingMessageStatus(IncomingMessage sms, boolean success) {        
+        String id = sms.getId();
+        if (success)
+        {
+            incomingSmsMap.remove(id);
+        }
+        else if (!sms.scheduleRetry())
+        {
+            incomingSmsMap.remove(id);
+        }
+    }    
 
     public synchronized void notifyOutgoingMessageStatus(String id, int resultCode) {
-        QueuedOutgoingSms queuedSms = outgoingSmsMap.get(id);
+        OutgoingMessage sms = outgoingSmsMap.get(id);
 
-        if (queuedSms == null) {
+        if (sms == null) {
             return;
         }
-
-        OutgoingSmsMessage sms = queuedSms.sms;
 
         switch (resultCode) {
             case Activity.RESULT_OK:
@@ -327,7 +204,7 @@ public class App {
             case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
             case SmsManager.RESULT_ERROR_RADIO_OFF:
             case SmsManager.RESULT_ERROR_NO_SERVICE:
-                if (!queuedSms.scheduleNextAttempt()) {
+                if (!sms.scheduleRetry()) {
                     outgoingSmsMap.remove(id);
                 }
                 break;
@@ -335,135 +212,82 @@ public class App {
                 outgoingSmsMap.remove(id);
                 break;
         }
-
     }
 
-    public synchronized void sendSMS(OutgoingSmsMessage sms) {
+    public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
         String id = sms.getId();
         if (outgoingSmsMap.containsKey(id)) {
             log(sms.getLogName() + " already sent, skipping");
             return;
         }
 
-        QueuedOutgoingSms queueEntry = new QueuedOutgoingSms(sms);
-        outgoingSmsMap.put(id, queueEntry);
+        outgoingSmsMap.put(id, sms);
 
         log("Sending " + sms.getLogName() + " to " + sms.getTo());
-        trySendSMS(sms);
+        sms.trySend();
     }
 
-    private void trySendSMS(OutgoingSmsMessage sms) {
-        SmsManager smgr = SmsManager.getDefault();
-
-        Intent intent = new Intent(context, MessageStatusNotifier.class);
-        intent.setData(Uri.parse("kalsms://outgoing/" + sms.getId()));
-
-        PendingIntent sentIntent = PendingIntent.getBroadcast(
-                this.context,
-                0,
-                intent,
-                PendingIntent.FLAG_ONE_SHOT);
-
-        smgr.sendTextMessage(sms.getTo(), null, sms.getMessage(), sentIntent, null);
-    }
-
-    private class PollerTask extends HttpTask {
-
-        public PollerTask() {
-            super(app);
-        }
-
-        @Override
-        protected void handleResponse(HttpResponse response) throws Exception {
-            for (OutgoingSmsMessage reply : parseResponseXML(response)) {
-                app.sendSMS(reply);
-            }
-        }
-    }
-
-    private class ForwarderTask extends HttpTask {
-
-        private SmsMessage originalSms;
-
-        public ForwarderTask(SmsMessage originalSms) {
-            super(app);
-            this.originalSms = originalSms;
-        }
-
-        @Override
-        protected String getDefaultToAddress() {
-            return originalSms.getOriginatingAddress();
-        }
-
-        @Override
-        protected void handleResponse(HttpResponse response) throws Exception {
-
-            for (OutgoingSmsMessage reply : parseResponseXML(response)) {
-                app.sendSMS(reply);
-            }
-
-            app.notifyIncomingMessageStatus(originalSms, true);
-        }
-
-        @Override
-        protected void handleFailure() {
-            app.notifyIncomingMessageStatus(originalSms, false);
-        }
-    }
-
-    private String getSmsId(SmsMessage sms) {
-        return sms.getOriginatingAddress() + ":" + sms.getMessageBody() + ":" + sms.getTimestampMillis();
-    }
-
-    public synchronized void sendMessageToServer(SmsMessage sms) {
-        String id = getSmsId(sms);
+    public synchronized void forwardToServer(IncomingMessage sms) {
+        String id = sms.getId();
+        
         if (incomingSmsMap.containsKey(id)) {
             log("Duplicate incoming SMS, skipping");
             return;
         }
 
-        QueuedIncomingSms queuedSms = new QueuedIncomingSms(sms);
-        incomingSmsMap.put(id, queuedSms);
+        incomingSmsMap.put(id, sms);
 
-        app.log("Received SMS from " + sms.getOriginatingAddress());
+        app.log("Received SMS from " + sms.getFrom());
 
-        trySendMessageToServer(sms);
-    }
-
-    public void trySendMessageToServer(SmsMessage sms) {
-        String message = sms.getMessageBody();
-        String sender = sms.getOriginatingAddress();
-
-        new ForwarderTask(sms).execute(
-                new BasicNameValuePair("from", sender),
-                new BasicNameValuePair("message", message),
-                new BasicNameValuePair("action", App.ACTION_INCOMING));
-
-    }
-
-    private synchronized void notifyIncomingMessageStatus(SmsMessage sms, boolean success) {
-        String id = getSmsId(sms);
-
-        QueuedIncomingSms queuedSms = incomingSmsMap.get(id);
-
-        if (queuedSms != null) {
-            if (success || !queuedSms.scheduleNextAttempt()) {
-                incomingSmsMap.remove(id);
-            }
-        }
+        sms.tryForwardToServer();
     }
 
     public synchronized void retryIncomingMessage(String id) {
-        QueuedIncomingSms queuedSms = incomingSmsMap.get(id);
-        if (queuedSms != null) {
-            queuedSms.attemptNow();
+        IncomingMessage sms = incomingSmsMap.get(id);
+        if (sms != null) {
+            sms.retryNow();
         }
     }
 
     public synchronized void retryOutgoingMessage(String id) {
-        QueuedOutgoingSms queuedSms = outgoingSmsMap.get(id);
-        if (queuedSms != null) {
-            queuedSms.attemptNow();
+        OutgoingMessage sms = outgoingSmsMap.get(id);
+        if (sms != null) {
+            sms.retryNow();
         }
     }
+
+        public void debug(String msg) {
+        Log.d(LOG_NAME, msg);
+    }
+
+    public void log(String msg) {
+        Log.d(LOG_NAME, msg);
+
+        Intent broadcast = new Intent(App.LOG_INTENT);
+        broadcast.putExtra("message", msg);
+        context.sendBroadcast(broadcast);
+    }
+    
+    public void logError(Throwable ex) {
+        logError("ERROR", ex);
+    }
+
+    public void logError(String msg, Throwable ex) {
+        logError(msg, ex, false);
+    }
+
+    public void logError(String msg, Throwable ex, boolean detail) {
+        log(msg + ": " + ex.getClass().getName() + ": " + ex.getMessage());
+
+        if (detail) {
+            for (StackTraceElement elem : ex.getStackTrace()) {
+                log(elem.getClassName() + ":" + elem.getMethodName() + ":" + elem.getLineNumber());
+            }
+            Throwable innerEx = ex.getCause();
+            if (innerEx != null) {
+                logError("Inner exception:", innerEx, true);
+            }
+        }
+    }
+
 }

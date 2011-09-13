@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class IncomingMessageForwarder extends BroadcastReceiver {
@@ -21,8 +23,8 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
 
             if (action.equals("android.provider.Telephony.SMS_RECEIVED")) {
                 
-                for (SmsMessage sms : getMessagesFromIntent(intent)) {
-                    app.sendMessageToServer(sms);
+                for (IncomingMessage sms : getMessagesFromIntent(intent)) {                    
+                    app.forwardToServer(sms);
                 }
                 
                 if (!app.getKeepInInbox())
@@ -37,15 +39,16 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
 
     // from http://github.com/dimagi/rapidandroid 
     // source: http://www.devx.com/wireless/Article/39495/1954
-    private SmsMessage[] getMessagesFromIntent(Intent intent) {
-        SmsMessage retMsgs[] = null;
-        Bundle bdl = intent.getExtras();
-        Object pdus[] = (Object[]) bdl.get("pdus");
-        retMsgs = new SmsMessage[pdus.length];
-        for (int n = 0; n < pdus.length; n++) {
-            byte[] byteData = (byte[]) pdus[n];
-            retMsgs[n] = SmsMessage.createFromPdu(byteData);
+    private List<IncomingMessage> getMessagesFromIntent(Intent intent) 
+    {
+        Bundle bundle = intent.getExtras();        
+        List<IncomingMessage> messages = new ArrayList<IncomingMessage>();
+        
+        for (Object pdu : (Object[]) bundle.get("pdus"))
+        {
+            SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu);
+            messages.add(new IncomingMessage(app, sms));
         }
-        return retMsgs;
+        return messages;
     }
 }

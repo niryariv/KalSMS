@@ -34,14 +34,13 @@ public class Main extends Activity {
     private class TestTask extends HttpTask
     {
         public TestTask() {
-            super(app);   
+            super(Main.this.app, new BasicNameValuePair("action", App.ACTION_OUTGOING));   
         }
         
         @Override
         protected void handleResponse(HttpResponse response) throws Exception 
         {        
-            parseResponseXML(response);
-            
+            parseResponseXML(response);            
             app.log("Server connection OK!");            
         }
     }
@@ -138,9 +137,7 @@ public class Main extends Activity {
             return true;
         case R.id.test: 
             app.log("Testing server connection...");
-            new TestTask().execute(
-                new BasicNameValuePair("action", App.ACTION_OUTGOING)                    
-            );            
+            new TestTask().execute();            
             return true;
         default:
             return super.onOptionsItemSelected(item);
