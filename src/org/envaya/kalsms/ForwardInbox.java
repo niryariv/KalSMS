@@ -5,16 +5,17 @@ import android.app.ListActivity;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.SparseBooleanArray;
 import android.view.View;
-import android.widget.CheckBox;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
-import android.widget.TextView;
 
 
 public class ForwardInbox extends ListActivity {
 
     private App app;    
+    
+    private Cursor cur;
     
     /** Called when the activity is first created. */
     @Override
@@ -30,7 +31,7 @@ public class ForwardInbox extends ListActivity {
         
         Uri inboxUri = Uri.parse("content://sms/inbox");
         
-        Cursor cur = getContentResolver().query(inboxUri, null, null, null, null);
+        cur = getContentResolver().query(inboxUri, null, null, null, null);
         
         SimpleCursorAdapter adapter = new SimpleCursorAdapter(this,
             R.layout.inbox_item,
@@ -39,26 +40,38 @@ public class ForwardInbox extends ListActivity {
             new int[] {R.id.inbox_address, R.id.inbox_body}); 
         
         setListAdapter(adapter);                                
+        
+        ListView listView = getListView();
+        
+        listView.setItemsCanFocus(false);        
     }
            
     public void forwardSelected(View view) {
         
         ListView listView = getListView();        
         
-        // there is probably a less hacky way to do this...
-        int childCount = listView.getChildCount();                
-        for (int i = 0; i < childCount; i++)
+        SparseBooleanArray checkedItems = listView.getCheckedItemPositions();
+        
+        int checkedItemsCount = checkedItems.size();
+        
+        int addressIndex = cur.getColumnIndex("address");
+        int bodyIndex = cur.getColumnIndex("body");
+        int dateIndex = cur.getColumnIndex("date");
+        
+        for (int i = 0; i < checkedItemsCount; ++i) 
         {
-            View entry = listView.getChildAt(i);            
-            CheckBox checkbox = (CheckBox) entry.findViewById(R.id.inbox_checkbox);
+            int position = checkedItems.keyAt(i);
+            boolean isChecked = checkedItems.valueAt(i);
 
-            if (checkbox.isChecked())
-            {
-                TextView addressView = (TextView) entry.findViewById(R.id.inbox_address);
-                TextView bodyView = (TextView) entry.findViewById(R.id.inbox_body);
-                IncomingMessage sms = new IncomingMessage(app, 
-                        addressView.getText().toString(), 
-                        bodyView.getText().toString());                
+            if (isChecked)
+            {                
+                cur.moveToPosition(position);
+                
+                String address = cur.getString(addressIndex);
+                String body = cur.getString(bodyIndex);
+                long date = cur.getLong(dateIndex);
+                
+                IncomingMessage sms = new IncomingMessage(app, address, body, date);
                 
                 app.forwardToServer(sms);
             }

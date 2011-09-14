@@ -9,7 +9,7 @@ public class IncomingMessage extends QueuedMessage {
 
     public String from;
     public String message;
-    public long timestampMillis = 0;    
+    public long timestampMillis;    
 
     public IncomingMessage(App app, SmsMessage sms) {
         super(app);
@@ -18,10 +18,11 @@ public class IncomingMessage extends QueuedMessage {
         this.timestampMillis = sms.getTimestampMillis();
     }
     
-    public IncomingMessage(App app, String from, String message) {
+    public IncomingMessage(App app, String from, String message, long timestampMillis) {
         super(app);
         this.from = from;
         this.message = message;
+        this.timestampMillis = timestampMillis;
     }    
 
     public String getMessageBody()
