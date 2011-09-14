@@ -6,4 +6,5 @@
     <string name="check_now">Check Messages</string>
     <string name="help">Help</string>
     <string name="retry_now">Retry</string>
+    <string name="forward_inbox">Fwd Inbox...</string>
 </resources>

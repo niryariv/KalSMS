@@ -132,7 +132,10 @@ public class Main extends Activity {
             return true;
         case R.id.retry_now:
             app.retryStuckMessages();
-            return true;           
+            return true; 
+        case R.id.forward_inbox:
+            startActivity(new Intent(this, ForwardInbox.class));
+            return true;
         case R.id.help:
             startActivity(new Intent(this, Help.class));
             return true;

@@ -42,7 +42,7 @@ public class Help extends Activity {
     
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        startActivity(new Intent(this, Main.class));
+        this.finish();
         
         return(true);
     }    

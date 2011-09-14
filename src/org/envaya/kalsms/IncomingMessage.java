@@ -7,30 +7,40 @@ import org.apache.http.message.BasicNameValuePair;
 
 public class IncomingMessage extends QueuedMessage {
 
-    public SmsMessage sms;
+    public String from;
+    public String message;
+    public long timestampMillis = 0;    
 
     public IncomingMessage(App app, SmsMessage sms) {
         super(app);
-        this.sms = sms;
+        this.from = sms.getOriginatingAddress();
+        this.message = sms.getMessageBody();
+        this.timestampMillis = sms.getTimestampMillis();
     }
+    
+    public IncomingMessage(App app, String from, String message) {
+        super(app);
+        this.from = from;
+        this.message = message;
+    }    
 
     public String getMessageBody()
     {
-        return sms.getMessageBody();
+        return message;
     }
     
     public String getFrom()
     {
-        return sms.getOriginatingAddress();
+        return from;
     }
     
     public String getId() 
     {
-        return sms.getOriginatingAddress() + ":" + sms.getMessageBody() + ":" + sms.getTimestampMillis();
+        return from + ":" + message + ":" + timestampMillis;
     }    
     
     public void retryNow() {
-        app.log("Retrying forwarding SMS from " + sms.getOriginatingAddress());
+        app.log("Retrying forwarding SMS from " + from);
         tryForwardToServer();
     }
 

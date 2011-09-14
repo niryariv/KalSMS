@@ -93,17 +93,10 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         }
     }    
 
-    // first time the Menu key is pressed
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        startActivity(new Intent(this, Prefs.class));
-        return (true);
-    }
-
     // any other time the Menu key is pressed
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        startActivity(new Intent(this, Prefs.class));
+        this.finish();
         return (true);
     }
 }
