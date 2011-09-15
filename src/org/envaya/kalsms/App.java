@@ -2,6 +2,7 @@ package org.envaya.kalsms;
 
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.Application;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -9,13 +10,16 @@ import android.content.SharedPreferences;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
+import android.text.SpannableStringBuilder;
 import android.util.Log;
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.message.BasicNameValuePair;
 
-public class App {
-
+public final class App extends Application {
+    
     public static final String ACTION_OUTGOING = "outgoing";
     public static final String ACTION_INCOMING = "incoming";
     public static final String ACTION_SEND_STATUS = "send_status";
@@ -24,24 +28,18 @@ public class App {
     public static final String STATUS_SENT = "sent";
     public static final String LOG_NAME = "KALSMS";
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
-    private static App app;
     
+    public static final int MAX_DISPLAYED_LOG = 15000;
+    public static final int LOG_TIMESTAMP_INTERVAL = 60000;
+    
+    private long lastLogTime = 0;
+    private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
     private Map<String, IncomingMessage> incomingSmsMap = new HashMap<String, IncomingMessage>();
     private Map<String, OutgoingMessage> outgoingSmsMap = new HashMap<String, OutgoingMessage>();
     
-    public Context context;
-    public SharedPreferences settings;
-
-    protected App(Context context) {
-        this.context = context;
-        this.settings = PreferenceManager.getDefaultSharedPreferences(context);
-    }
-
-    public static App getInstance(Context context) {
-        if (app == null) {
-            app = new App(context);
-        }
-        return app;
+    public SharedPreferences getSettings()
+    {
+        return PreferenceManager.getDefaultSharedPreferences(this);        
     }
 
     public void checkOutgoingMessages() 
@@ -56,11 +54,11 @@ public class App {
     }
 
     public void setOutgoingMessageAlarm() {
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this,
                 0,
-                new Intent(context, OutgoingMessagePoller.class),
+                new Intent(this, OutgoingMessagePoller.class),
                 0);
 
         alarm.cancel(pendingIntent);
@@ -91,33 +89,33 @@ public class App {
     }
 
     public String getServerUrl() {
-        return settings.getString("server_url", "");
+        return getSettings().getString("server_url", "");
     }
 
     public String getPhoneNumber() {
-        return settings.getString("phone_number", "");
+        return getSettings().getString("phone_number", "");
     }
 
     public int getOutgoingPollSeconds() {
-        return Integer.parseInt(settings.getString("outgoing_interval", "0"));
+        return Integer.parseInt(getSettings().getString("outgoing_interval", "0"));
     }
 
     public boolean getLaunchOnBoot() {
-        return settings.getBoolean("launch_on_boot", false);
+        return getSettings().getBoolean("launch_on_boot", false);
     }
     
     public boolean isEnabled()
     {
-        return settings.getBoolean("enabled", false);
+        return getSettings().getBoolean("enabled", false);
     }
     
     public boolean getKeepInInbox() 
     {
-        return settings.getBoolean("keep_in_inbox", false);        
+        return getSettings().getBoolean("keep_in_inbox", false);        
     }
 
     public String getPassword() {
-        return settings.getString("password", "");
+        return getSettings().getString("password", "");
     }
 
     private void notifyStatus(OutgoingMessage sms, String status, String errorMessage) {
@@ -134,16 +132,16 @@ public class App {
         String smsDesc = sms.getLogName();
 
         if (serverId != null) {
-            app.log("Notifying server " + smsDesc + " " + logMessage);
+            log("Notifying server " + smsDesc + " " + logMessage);
 
-            new HttpTask(app,
+            new HttpTask(this,
                 new BasicNameValuePair("id", serverId),
                 new BasicNameValuePair("status", status),
                 new BasicNameValuePair("error", errorMessage),
                 new BasicNameValuePair("action", App.ACTION_SEND_STATUS)                    
             ).execute();
         } else {
-            app.log(smsDesc + " " + logMessage);
+            log(smsDesc + " " + logMessage);
         }
     }
 
@@ -245,7 +243,7 @@ public class App {
 
         incomingSmsMap.put(id, sms);
 
-        app.log("Received SMS from " + sms.getFrom());
+        log("Received SMS from " + sms.getFrom());
 
         sms.tryForwardToServer();
     }
@@ -264,16 +262,51 @@ public class App {
         }
     }
 
-        public void debug(String msg) {
+    public void debug(String msg) {
         Log.d(LOG_NAME, msg);
     }
 
-    public void log(String msg) {
-        Log.d(LOG_NAME, msg);
+    public void log(CharSequence msg) 
+    {
+        Log.d(LOG_NAME, msg.toString());       
+                                 
+        // prevent displayed log from growing too big
+        int length = displayedLog.length();
+        if (length > MAX_DISPLAYED_LOG)
+        {
+            int startPos = length - MAX_DISPLAYED_LOG * 3 / 4;
+            
+            for (int cur = startPos; cur < startPos + 100 && cur < length; cur++)
+            {
+                if (displayedLog.charAt(cur) == '\n')
+                {
+                    startPos = cur;
+                    break;
+                }
+            }
 
+            displayedLog.replace(0, startPos, "[Older log messages not shown]\n");
+        }
+
+        // display a timestamp in the log occasionally        
+        long logTime = SystemClock.elapsedRealtime();        
+        if (logTime - lastLogTime > LOG_TIMESTAMP_INTERVAL)
+        {
+            Date date = new Date();
+            displayedLog.append("[" + DateFormat.getTimeInstance().format(date) + "]\n");                
+            lastLogTime = logTime;
+        }
+        
+        displayedLog.append(msg);
+        displayedLog.append("\n");        
+            
         Intent broadcast = new Intent(App.LOG_INTENT);
-        broadcast.putExtra("message", msg);
-        context.sendBroadcast(broadcast);
+        sendBroadcast(broadcast);
+    }
+    
+    public CharSequence getDisplayedLog()
+    {
+        return displayedLog;
     }
     
     public void logError(Throwable ex) {

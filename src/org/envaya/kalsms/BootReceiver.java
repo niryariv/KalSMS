@@ -10,7 +10,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) 
     {
-        App app = App.getInstance(context.getApplicationContext());
+        App app = (App)context.getApplicationContext();
         if (!app.isEnabled())
         {
             return;

@@ -10,7 +10,7 @@ public class OutgoingMessageRetry extends BroadcastReceiver
     @Override
     public void onReceive(Context context, Intent intent) 
     {        
-        App app = App.getInstance(context.getApplicationContext());        
+        App app = (App) context.getApplicationContext();        
         app.retryOutgoingMessage(intent.getData().getLastPathSegment());        
     }
 }    

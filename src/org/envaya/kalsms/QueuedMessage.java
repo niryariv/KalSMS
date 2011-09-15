@@ -48,9 +48,9 @@ public abstract class QueuedMessage
             nextRetryTime = now + 24 * 60 * minute;
         }
 
-        AlarmManager alarm = (AlarmManager) app.context.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager alarm = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(app.context,
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(app,
                 0,
                 getRetryIntent(),
                 0);

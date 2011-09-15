@@ -25,6 +25,15 @@ public class IncomingMessage extends QueuedMessage {
         this.timestampMillis = timestampMillis;
     }    
 
+    public boolean isForwardable()
+    {
+        /* 
+         * don't forward messages from shortcodes
+         * because they're likely to be spam or messages from network
+         */
+        return from.length() > 5;
+    }
+    
     public String getMessageBody()
     {
         return message;
@@ -54,7 +63,7 @@ public class IncomingMessage extends QueuedMessage {
     
     
     protected Intent getRetryIntent() {
-        Intent intent = new Intent(app.context, IncomingMessageRetry.class);
+        Intent intent = new Intent(app, IncomingMessageRetry.class);
         intent.setData(Uri.parse("kalsms://incoming/" + this.getId()));
         return intent;
     }

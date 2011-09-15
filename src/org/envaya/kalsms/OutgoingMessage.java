@@ -87,11 +87,11 @@ public class OutgoingMessage extends QueuedMessage {
     {
         SmsManager smgr = SmsManager.getDefault();
 
-        Intent intent = new Intent(app.context, MessageStatusNotifier.class);
+        Intent intent = new Intent(app, MessageStatusNotifier.class);
         intent.setData(Uri.parse("kalsms://outgoing/" + getId()));
 
         PendingIntent sentIntent = PendingIntent.getBroadcast(
-                app.context,
+                app,
                 0,
                 intent,
                 PendingIntent.FLAG_ONE_SHOT);
@@ -100,7 +100,7 @@ public class OutgoingMessage extends QueuedMessage {
     }
 
     protected Intent getRetryIntent() {
-        Intent intent = new Intent(app.context, OutgoingMessageRetry.class);
+        Intent intent = new Intent(app, OutgoingMessageRetry.class);
         intent.setData(Uri.parse("kalsms://outgoing/" + getId()));
         return intent;
     }   

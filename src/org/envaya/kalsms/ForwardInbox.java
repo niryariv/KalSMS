@@ -22,7 +22,7 @@ public class ForwardInbox extends ListActivity {
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         
-        app = App.getInstance(getApplicationContext());
+        app = (App) getApplication();
                 
         setContentView(R.layout.inbox);
                 

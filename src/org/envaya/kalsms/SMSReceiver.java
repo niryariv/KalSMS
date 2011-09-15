@@ -9,14 +9,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class IncomingMessageForwarder extends BroadcastReceiver {
+public class SMSReceiver extends BroadcastReceiver {
 
     private App app;   
 
     @Override
     // source: http://www.devx.com/wireless/Article/39495/1954
     public void onReceive(Context context, Intent intent) {        
-        app = App.getInstance(context.getApplicationContext());
+        app = (App) context.getApplicationContext();
         
         if (!app.isEnabled())
         {
@@ -28,11 +28,21 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
 
             if (action.equals("android.provider.Telephony.SMS_RECEIVED")) {
                 
+                boolean hasUnhandledMessage = false;
+                
                 for (IncomingMessage sms : getMessagesFromIntent(intent)) {                    
-                    app.forwardToServer(sms);
+                    
+                    if (sms.isForwardable())
+                    {                    
+                        app.forwardToServer(sms);
+                    }
+                    else
+                    {
+                        hasUnhandledMessage = true;
+                    }
                 }
                 
-                if (!app.getKeepInInbox())
+                if (!hasUnhandledMessage && !app.getKeepInInbox())
                 {
                     this.abortBroadcast();
                 }
@@ -48,7 +58,7 @@ public class IncomingMessageForwarder extends BroadcastReceiver {
     {
         Bundle bundle = intent.getExtras();        
         List<IncomingMessage> messages = new ArrayList<IncomingMessage>();
-        
+
         for (Object pdu : (Object[]) bundle.get("pdus"))
         {
             SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu);

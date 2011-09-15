@@ -8,7 +8,7 @@ public class OutgoingMessagePoller extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        App app = App.getInstance(context.getApplicationContext());
+        App app = (App) context.getApplicationContext();
         app.checkOutgoingMessages();        
     }
 }

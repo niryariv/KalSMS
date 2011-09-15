@@ -43,7 +43,8 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) { 
         
-        App app = App.getInstance(this.getApplicationContext());
+        App app = (App) getApplication();
+        
         if (key.equals("outgoing_interval"))
         {            
             app.setOutgoingMessageAlarm();
