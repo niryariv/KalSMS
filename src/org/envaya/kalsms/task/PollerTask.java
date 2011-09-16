@@ -1,7 +1,6 @@
 
 package org.envaya.kalsms.task;
 
-import org.envaya.kalsms.task.HttpTask;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.kalsms.App;

@@ -103,10 +103,6 @@ public final class App extends Application {
         return Integer.parseInt(getSettings().getString("outgoing_interval", "0"));
     }
 
-    public boolean getLaunchOnBoot() {
-        return getSettings().getBoolean("launch_on_boot", false);
-    }
-    
     public boolean isEnabled()
     {
         return getSettings().getBoolean("enabled", false);
