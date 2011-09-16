@@ -1,4 +1,4 @@
-package org.envaya.kalsms;
+package org.envaya.kalsms.ui;
 
 // from http://www.marvinlabs.com/2010/10/custom-listview-ability-check-items/
 // package fr.marvinlabs.widget;

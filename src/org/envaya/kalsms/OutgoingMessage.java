@@ -1,6 +1,8 @@
 
 package org.envaya.kalsms;
 
+import org.envaya.kalsms.receiver.OutgoingMessageRetry;
+import org.envaya.kalsms.receiver.MessageStatusNotifier;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.net.Uri;

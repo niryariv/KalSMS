@@ -2,12 +2,12 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.envaya.kalsms;
+package org.envaya.kalsms.receiver;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.telephony.SmsManager;
+import org.envaya.kalsms.App;
 
 public class MessageStatusNotifier extends BroadcastReceiver {
 

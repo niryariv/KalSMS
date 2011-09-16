@@ -1,6 +1,5 @@
-package org.envaya.kalsms;
+package org.envaya.kalsms.ui;
 
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
@@ -10,6 +9,8 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.view.Menu;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.R;
 
 public class Prefs extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 

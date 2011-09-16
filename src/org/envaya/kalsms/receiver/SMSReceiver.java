@@ -1,4 +1,4 @@
-package org.envaya.kalsms;
+package org.envaya.kalsms.receiver;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.telephony.SmsMessage;
 import java.util.ArrayList;
 import java.util.List;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.IncomingMessage;
 
 
 public class SMSReceiver extends BroadcastReceiver {

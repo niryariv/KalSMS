@@ -1,5 +1,6 @@
-package org.envaya.kalsms;
+package org.envaya.kalsms.ui;
 
+import org.envaya.kalsms.task.HttpTask;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -17,6 +18,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.R;
 
 public class Main extends Activity {   
 	

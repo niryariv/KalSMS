@@ -16,53 +16,52 @@
 
     <application android:name="org.envaya.kalsms.App"
         android:icon="@drawable/icon" android:label="@string/app_name">
-        <activity android:name=".Main" android:label="@string/app_name">
+        <activity android:name=".ui.Main" android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         
-        <activity android:name=".Help" android:label="@string/app_name">
+        <activity android:name=".ui.Help" android:label="@string/app_name">
         </activity>        
         
-        <activity android:name=".ForwardInbox" android:label="@string/app_name">
+        <activity android:name=".ui.ForwardInbox" android:label="@string/app_name">
         </activity>        
-        
-        
-        <receiver android:name=".SMSReceiver">
+
+        <activity android:name=".ui.Prefs"
+          android:label="@string/app_name">
+        </activity>
+
+        <receiver android:name=".receiver.SMSReceiver">
             <intent-filter android:priority="101">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver> 		
 
-        <receiver android:name=".MMSReceiver">
+        <receiver android:name=".receiver.MMSReceiver">
           <intent-filter android:priority="101">
             <action android:name="android.provider.Telephony.WAP_PUSH_RECEIVED" />
             <data android:mimeType="application/vnd.wap.mms-message" />
           </intent-filter>
         </receiver>
 
-        <receiver android:name=".MessageStatusNotifier">
+        <receiver android:name=".receiver.MessageStatusNotifier">
         </receiver>
 
-        <receiver android:name=".OutgoingMessagePoller">
+        <receiver android:name=".receiver.OutgoingMessagePoller">
         </receiver>
         
-        <receiver android:name=".OutgoingMessageRetry">
+        <receiver android:name=".receiver.OutgoingMessageRetry">
         </receiver>        
         
-        <receiver android:name=".IncomingMessageRetry">
+        <receiver android:name=".receiver.IncomingMessageRetry">
         </receiver>                
         
-        <receiver android:name=".BootReceiver">
+        <receiver android:name=".receiver.BootReceiver">
             <intent-filter> 
                  <action android:name="android.intent.action.BOOT_COMPLETED" /> 
             </intent-filter>
         </receiver>        
-
-        <activity android:name=".Prefs"
-          android:label="@string/app_name">
-        </activity>
     </application>
 </manifest> 

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<org.envaya.kalsms.CheckableRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<org.envaya.kalsms.ui.CheckableRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="horizontal"
     android:layout_width="fill_parent"
     android:layout_height="wrap_content" 
     android:background="#cccccc">          
-<org.envaya.kalsms.InertCheckBox android:id="@+id/inbox_checkbox"
+<org.envaya.kalsms.ui.InertCheckBox android:id="@+id/inbox_checkbox"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content" 
     android:focusable="false" 
@@ -31,4 +31,4 @@
     android:focusable="false" 
     android:paddingBottom="6sp"
     android:textSize="14sp"></TextView>
-</org.envaya.kalsms.CheckableRelativeLayout>
+</org.envaya.kalsms.ui.CheckableRelativeLayout>

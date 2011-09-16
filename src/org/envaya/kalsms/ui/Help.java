@@ -2,14 +2,14 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.envaya.kalsms;
+package org.envaya.kalsms.ui;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.text.Html;
 import android.view.Menu;
 import android.widget.TextView;
+import org.envaya.kalsms.R;
 
 /**
  *

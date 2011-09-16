@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.envaya.kalsms;
+package org.envaya.kalsms.task;
 
 import android.os.AsyncTask;
 import java.io.IOException;
@@ -27,6 +27,9 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.Base64Coder;
+import org.envaya.kalsms.OutgoingMessage;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;

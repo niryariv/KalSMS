@@ -1,5 +1,5 @@
 
-package org.envaya.kalsms;
+package org.envaya.kalsms.ui;
 
 import android.app.ListActivity;
 import android.database.Cursor;
@@ -9,6 +9,9 @@ import android.util.SparseBooleanArray;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.IncomingMessage;
+import org.envaya.kalsms.R;
 
 
 public class ForwardInbox extends ListActivity {

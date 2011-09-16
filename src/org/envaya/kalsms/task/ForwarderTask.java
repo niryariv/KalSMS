@@ -1,7 +1,10 @@
-package org.envaya.kalsms;
+package org.envaya.kalsms.task;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.IncomingMessage;
+import org.envaya.kalsms.OutgoingMessage;
 
 public class ForwarderTask extends HttpTask {
 

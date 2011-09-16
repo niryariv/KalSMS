@@ -1,9 +1,11 @@
 
-package org.envaya.kalsms;
+package org.envaya.kalsms.receiver;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import org.envaya.kalsms.App;
+import org.envaya.kalsms.ui.Main;
 
 public class BootReceiver extends BroadcastReceiver {
     

@@ -1,5 +1,8 @@
 package org.envaya.kalsms;
 
+import org.envaya.kalsms.task.PollerTask;
+import org.envaya.kalsms.task.HttpTask;
+import org.envaya.kalsms.receiver.OutgoingMessagePoller;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Application;
