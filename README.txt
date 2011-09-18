@@ -1,7 +1,256 @@
-(Polling branch - this adds periodic URL polling functionality)
+========
+Contents
+========
 
-KalSMS is an simple Android SMS gateway application.
+* About KalSMS
+* Features
+* Prerequisites
+* Installing
+* Server API
+* License
 
-Info & setup here: http://wiki.github.com/niryariv/kalsms/
+============
+About KalSMS
+============
 
-The code is released under the MIT license. Please contact niryariv@gmail.com with any questions or feedback.
+KalSMS is an Android app that acts as a SMS/MMS gateway. 
+For more information, see http://youngj.github.com/KalSMS/
+
+========
+Features
+========
+
+*   Can be deployed almost anywhere in the world
+*   Designed to allow non-technical users to do all setup/maintenance 
+    of deployed phones
+*   Many different phones running KalSMS can be connected to a single server 
+    (each phone could forward messages for a different mobile network)
+*   Authenticates with password shared between phone and server
+*   Retries forwarding messages after a delay if there is an error 
+    (e.g. due to temporarily broken internet or GSM connection)
+*   Notifies the server of the status of outgoing messages
+*   Forwards incoming MMS messages (pictures/video/audio)
+*   Shows log messages to user to facilitate troubleshooting
+*   Can prevent incoming messages from being stored in Messaging inbox
+*   Can forward messages already received in Messaging inbox
+
+=============
+Prerequisites
+=============
+
+*   One or more Android phones (1.6 Donut or higher) that are
+    registered on a mobile network. 
+*   A way for the phones to connect to the internet, either via Wi-Fi
+    or the mobile data service. (Even if using Wi-Fi, mobile data 
+    service is required for receiving MMS messages.)    
+*   A web server accessible from the public internet
+
+==========
+Installing
+==========
+
+The general process for installing KalSMS is as follows:
+
+*   Download and install KalSMS on an Android phone, e.g. via
+    http://envaya.org/sg/kalsms or by compiling it from source
+    and using "adb install" on a phone in USB debugging mode
+*   Open the KalSMS app
+*   Click the Menu button, then "Settings"
+*   Configure KalSMS to work with your server by entering:
+        * your server URL
+        * your phone number
+        * the password shared with the server
+*   Choose an interval to poll for new messages
+*   Check "Enable KalSMS?"
+*   Click the Back button to return to the main screen
+
+Of course, you must also set up the server. It is assumed that
+you already have some kind of HTTP server; follow the instructions in the
+Server API section below to learn how to construct a resource that 
+communicates with KalSMS.
+
+To test if KalSMS has been configured properly and can connect
+to your server, open the KalSMS app, click the Menu button, 
+then click "Test Connection".
+
+Additional recommended phone configuration:
+
+*   Prevent Wi-Fi from turning off when the phone sleeps, by 
+    going to Settings > Wireless & Networks > Wi-Fi settings >
+    Menu key > Advanced > Wi-Fi sleep policy and select "Never".
+    (Otherwise, you will get connection timeout errors when forwarding
+    messages after the phone goes to sleep.)
+    
+==========
+Server API
+==========
+
+KalSMS communicates with the server via HTTP POST requests which expect an XML response.
+
+For convenience, KalSMS includes server libraries for certain languages to simplify 
+handling its POST requests and generating response XML.  
+
+These libraries and example code are available in the server/ directory. 
+
+-------------------
+HTTP Request Format
+-------------------
+
+The following parameters are sent by all POST requests from KalSMS:
+
+    "version" ::= <integer>     
+        The API version of the POST requests (currently "2"). 
+        
+        This number will be incremented whenever the format of POST requests changes significantly.         
+        This allows the server to support phones running different API versions at the same time.
+        If a deployment has many phones running with KalSMS, the server should update its code first,
+        then the phones can be upgraded to the new version of KalSMS as convenient.
+
+    "phone_number" ::= <text>
+        The phone number of the phone running KalSMS, as entered under Menu > Settings.
+        
+        This allows the server to differentiate between KalSMS clients if multiple phones
+        are running KalSMS.
+        
+    "action" ::= "outgoing" | "incoming" | "send_status"
+        The request action determines the purpose of the HTTP request:
+        
+        "outgoing":    
+            Poll the server for outgoing messages
+        
+        "incoming":
+            Forward an incoming SMS or MMS message to the server
+            
+        "send_status":
+            Update the server on the status of sending an outgoing message
+            
+        The other POST parameters sent depend on the request action.
+       
+HTTP Headers sent by all POST requests from KalSMS:       
+
+    "X-Kalsms-Signature" ::= <text>
+        A signature of the request to verify the phone and the server share the same password
+        (though it doesn't protect against MITM snooping or replay attacks).
+        
+        The signature is calculated by the following algorithm:
+            
+            1. Sort all POST parameters (not including file uploads) 
+                in alphabetical order by the name of the field.
+                
+            2. Generate an input string by concatenating:
+                    the server URL,
+                    each of the sorted POST parameters with their corresponding values, and
+                    the password,                                 
+                with a comma in between each element, like so:
+            
+                "<serverURL>,<name1>,<value1>,<...>,<nameN>,<valueN>,<password>"
+                                    
+            3. Generate the SHA-1 hash of the input string in UTF-8
+            
+            4. Encode the SHA-1 hash using Base64 with no line breaks.
+       
+Additional parameters sent in POST requests with action=incoming:
+   
+    "from" ::= <text>
+        The phone number of the message sender.
+        
+    "message_type" ::= "sms" | "mms"
+        Whether this message is an SMS or MMS.
+
+    "message" ::= <text>
+        The message body of the SMS, or the content of the text/plain part of the MMS.
+        
+Additional parameters sent in POST requests with action=incoming and message_type=mms:
+    
+    "mms_parts" ::= <json_array>
+        Metadata for each part of the MMS. Each item in the JSON array is an object
+        with the following keys and values:
+        
+        "name" ::= <text>
+            The name of an additional form field where the content of the MMS part
+            is sent as an attached file.
+        
+        "cid" ::= <text>
+            The Content ID of the MMS part. This allows the server to resolve 
+            references in the SMIL part of the MMS 
+            (e.g. <img region="Image" src="cid:805"/>).
+            
+        "type" ::= "application/smil" | "text/plain" | "image/jpeg" | ...
+            The Content Type of the MMS part. 
+        
+        "filename" ::= <text>
+            The filename of the MMS part, as sent by the sender phone, 
+            e.g. "Image001.jpg".
+
+    (Additional fields with the content of each MMS part. Text parts
+    are encoded in UTF-8.)
+    
+Additional parameters sent in POST requests with action=outgoing:
+
+    (None)
+        
+Additional parameters sent in POST requests with action=send_status:        
+
+    "id" ::= <text>
+        The Server's ID for the outgoing message (as sent in a previous
+        response XML).
+
+    "status" ::= "queued" | "failed" | "sent"
+        The current status of the outgoing message.
+        
+    "error" ::= <text>
+        A description of the reason for the error, if the message 
+        failed to send; or, an empty string if the message
+        has been sent successfully.
+
+--------------------
+HTTP Response Format
+--------------------
+        
+For a successul request, the server should return HTTP status code 200.
+If the signature check failed, the server should return status code 403.
+Other status codes may be used to signify errors.
+    
+HTTP response format for action=incoming and action=outgoing:
+
+    The Content-Type header should be text/xml, with the content as follows:
+
+    <messages>
+        The root XML element.
+       
+        Attributes: none
+        Content: <sms>*             
+        
+    <sms>
+        Describes an outgoing SMS to send.
+        
+        Attributes:
+            "id" ::= <text> (optional)
+                An ID for this outgoing message. (KalSMS will send this 
+                back to the server as the id field in a send_status request.)
+            
+            "to" ::= <text> (optional for incoming, required for outgoing)
+                The phone number to send the SMS to. If omitted for 
+                action=incoming, it will be sent as a reply to the original
+                sender.
+                
+        Content: CDATA
+            The content of the SMS message to send.
+
+    Example:
+        <?xml version='1.0' encoding='UTF-8'?>
+        <messages>
+            <sms id='42' to='5551212'>Message One</sms>
+            <sms>Message Two</sms>
+        </message>
+        
+Response format for action=send_status:        
+
+    The response content is currently undefined and ignored. 
+
+=======
+License
+=======
+
+The code is released under the MIT license; see LICENSE.txt
+    
