@@ -1,12 +1,12 @@
 
 package org.envaya.kalsms;
 
+import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import org.envaya.kalsms.receiver.OutgoingMessageRetry;
-import org.envaya.kalsms.receiver.MessageStatusNotifier;
-import android.app.PendingIntent;
 import android.content.Intent;
 import android.net.Uri;
-import android.telephony.SmsManager;
 
 public class OutgoingMessage extends QueuedMessage {
     
@@ -87,18 +87,19 @@ public class OutgoingMessage extends QueuedMessage {
     
     public void trySend()
     {
-        SmsManager smgr = SmsManager.getDefault();
-
-        Intent intent = new Intent(app, MessageStatusNotifier.class);
-        intent.setData(this.getUri());
-
-        PendingIntent sentIntent = PendingIntent.getBroadcast(
-                app,
-                0,
-                intent,
-                PendingIntent.FLAG_ONE_SHOT);
-
-        smgr.sendTextMessage(getTo(), null, getMessageBody(), sentIntent, null);        
+        String packageName = app.chooseOutgoingSmsPackage();
+        
+        if (packageName == null)
+        {            
+            // todo... schedule retry
+            return;
+        }
+        
+        Intent intent = new Intent(packageName + App.OUTGOING_SMS_INTENT_SUFFIX, this.getUri());
+        intent.putExtra(App.OUTGOING_SMS_EXTRA_TO, getTo());
+        intent.putExtra(App.OUTGOING_SMS_EXTRA_BODY, getMessageBody());
+        
+        app.sendBroadcast(intent, "android.permission.SEND_SMS");
     }
 
     protected Intent getRetryIntent() {

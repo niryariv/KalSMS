@@ -13,7 +13,7 @@ Contents
 About KalSMS
 ============
 
-KalSMS is an Android app that acts as a SMS/MMS gateway. 
+KalSMS is an Android app that acts as a SMS and MMS gateway. 
 For more information, see http://youngj.github.com/KalSMS/
 
 ========
@@ -23,6 +23,8 @@ Features
 *   Can be deployed almost anywhere in the world
 *   Designed to allow non-technical users to do all setup/maintenance 
     of deployed phones
+*   Can send outgoing SMS in excess of Android's limit of 100 messages 
+    per app per hour by installing expansion packs
 *   Many different phones running KalSMS can be connected to a single server 
     (each phone could forward messages for a different mobile network)
 *   Authenticates with password shared between phone and server
@@ -253,4 +255,3 @@ License
 =======
 
 The code is released under the MIT license; see LICENSE.txt
-    

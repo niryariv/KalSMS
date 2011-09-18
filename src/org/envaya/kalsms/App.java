@@ -1,16 +1,15 @@
 package org.envaya.kalsms;
 
-import org.envaya.kalsms.task.PollerTask;
-import org.envaya.kalsms.task.HttpTask;
-import org.envaya.kalsms.receiver.OutgoingMessagePoller;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Application;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
@@ -18,10 +17,15 @@ import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.http.message.BasicNameValuePair;
+import org.envaya.kalsms.receiver.OutgoingMessagePoller;
+import org.envaya.kalsms.task.HttpTask;
+import org.envaya.kalsms.task.PollerTask;
 
 public final class App extends Application {
     
@@ -37,9 +41,24 @@ public final class App extends Application {
     public static final String MESSAGE_TYPE_SMS = "sms";
     
     public static final String LOG_NAME = "KALSMS";
-    public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
     
-    public static final int MAX_DISPLAYED_LOG = 15000;
+    // intent to signal to Main activity (if open) that log has changed
+    public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
+            
+    public static final String QUERY_EXPANSION_PACKS_INTENT = "org.envaya.kalsms.QUERY_EXPANSION_PACKS";
+    public static final String QUERY_EXPANSION_PACKS_EXTRA_PACKAGES = "packages";
+    
+    // Interface for sending outgoing messages to expansion packs
+    public static final String OUTGOING_SMS_INTENT_SUFFIX = ".OUTGOING_SMS";    
+    public static final String OUTGOING_SMS_EXTRA_TO = "to";
+    public static final String OUTGOING_SMS_EXTRA_BODY = "body";    
+    public static final int OUTGOING_SMS_UNHANDLED = Activity.RESULT_FIRST_USER;
+    
+    // intent for MessageStatusNotifier to receive status updates for outgoing SMS
+    // (even if sent by an expansion pack)
+    public static final String MESSAGE_STATUS_INTENT = "org.envaya.kalsms.MESSAGE_STATUS";
+    
+    public static final int MAX_DISPLAYED_LOG = 4000;
     public static final int LOG_TIMESTAMP_INTERVAL = 60000;
     
     // Each QueuedMessage is identified within our internal Map by its Uri.
@@ -48,7 +67,13 @@ public final class App extends Application {
     public static final Uri CONTENT_URI = Uri.parse("content://org.envaya.kalsms");
     public static final Uri INCOMING_URI = Uri.withAppendedPath(CONTENT_URI, "incoming");
     public static final Uri OUTGOING_URI = Uri.withAppendedPath(CONTENT_URI, "outgoing");
-        
+    
+    // max per-app outgoing SMS rate used by com.android.internal.telephony.SMSDispatcher
+    // with a slightly longer check period to account for variance in the time difference
+    // between when we prepare messages and when SMSDispatcher receives them
+    public static int OUTGOING_SMS_CHECK_PERIOD = 3605000; // one hour plus 5 sec (in ms)    
+    public static int OUTGOING_SMS_MAX_COUNT = 100;
+    
     private Map<Uri, IncomingMessage> incomingMessages = new HashMap<Uri, IncomingMessage>();
     private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
     
@@ -56,6 +81,11 @@ public final class App extends Application {
     private MmsObserver mmsObserver;
     private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
     private long lastLogTime;
+    
+    private List<String> outgoingMessagePackages = new ArrayList<String>();
+    private int outgoingMessageCount = -1;
+    private HashMap<String, ArrayList<Long>> outgoingTimestamps
+            = new HashMap<String, ArrayList<Long>>();
     
     private MmsUtils mmsUtils;
     
@@ -67,6 +97,10 @@ public final class App extends Application {
         settings = PreferenceManager.getDefaultSharedPreferences(this);        
         mmsUtils = new MmsUtils(this);
         
+        outgoingMessagePackages.add(getPackageName());
+        
+        updateExpansionPacks();
+        
         log(Html.fromHtml(
             isEnabled() ? "<b>SMS gateway running.</b>" : "<b>SMS gateway disabled.</b>"));
 
@@ -77,8 +111,102 @@ public final class App extends Application {
         mmsObserver.register();
         
         setOutgoingMessageAlarm();
+    }   
+    
+    public synchronized String chooseOutgoingSmsPackage()
+    {
+        outgoingMessageCount++;
+        
+        int numPackages = outgoingMessagePackages.size();
+        
+        // round robin selection of packages that are under max sending rate
+        for (int i = 0; i < numPackages; i++)
+        {
+            int packageIndex = (outgoingMessageCount + i) % numPackages;           
+            String packageName = outgoingMessagePackages.get(packageIndex);
+            
+            // implement rate-limiting algorithm from
+            // com.android.internal.telephony.SMSDispatcher.SmsCounter
+            
+            if (!outgoingTimestamps.containsKey(packageName)) {
+                outgoingTimestamps.put(packageName, new ArrayList<Long>());
+            }                
+            
+            ArrayList<Long> sent = outgoingTimestamps.get(packageName);        
+            Long ct = System.currentTimeMillis();
+
+            //log(packageName + " SMS send size=" + sent.size());
+
+            // remove old timestamps
+            while (sent.size() > 0 && (ct - sent.get(0)) > OUTGOING_SMS_CHECK_PERIOD ) 
+            {
+                sent.remove(0);
+            }
+
+            if ( (sent.size() + 1) <= OUTGOING_SMS_MAX_COUNT)
+            {
+                sent.add(ct);
+                return packageName;
+            }            
+        }
+        
+        log("Can't send outgoing SMS: maximum limit of "
+            + getOutgoingMessageLimit() + " in 1 hour reached");
+        log("To increase this limit, install an expansion pack.");
+                
+        return null;
     }    
 
+    private synchronized void setExpansionPacks(List<String> packages)
+    {
+        int prevLimit = getOutgoingMessageLimit();
+        
+        if (packages == null)
+        {
+            packages = new ArrayList<String>();
+        }
+        
+        packages.add(getPackageName());        
+        
+        outgoingMessagePackages = packages;        
+        
+        int newLimit = getOutgoingMessageLimit();
+        
+        if (prevLimit != newLimit)
+        {        
+            log("Outgoing SMS limit: " + newLimit + " messages/hour");
+        }
+    }
+    
+    public int getOutgoingMessageLimit()
+    {
+        return outgoingMessagePackages.size() * OUTGOING_SMS_MAX_COUNT;
+    }
+    
+    public void updateExpansionPacks()
+    {
+        ArrayList<String> packages = new ArrayList<String>();
+        Bundle extras = new Bundle();
+        extras.putStringArrayList(App.QUERY_EXPANSION_PACKS_EXTRA_PACKAGES, packages);
+        
+        sendOrderedBroadcast(
+                new Intent(App.QUERY_EXPANSION_PACKS_INTENT), 
+                "android.permission.SEND_SMS",
+                new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent resultIntent) {
+                        
+                        setExpansionPacks(this.getResultExtras(false)
+                            .getStringArrayList(App.QUERY_EXPANSION_PACKS_EXTRA_PACKAGES));
+                        
+                    }
+                }, 
+                null, 
+                Activity.RESULT_OK,
+                null, 
+                extras);
+    }
+    
     public void checkOutgoingMessages() 
     {
         String serverUrl = getServerUrl();
@@ -266,7 +394,7 @@ public final class App extends Application {
     public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
         Uri uri = sms.getUri();
         if (outgoingMessages.containsKey(uri)) {
-            log(sms.getLogName() + " already sent, skipping");
+            log("Duplicate outgoing " + sms.getLogName() + ", skipping");
             return;
         }
 

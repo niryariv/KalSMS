@@ -190,7 +190,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         DocumentBuilder xmlBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document xml = xmlBuilder.parse(responseStream);
 
-        NodeList smsNodes = xml.getElementsByTagName("Sms");
+        NodeList smsNodes = xml.getElementsByTagName("sms");
         for (int i = 0; i < smsNodes.getLength(); i++) {
             Element smsElement = (Element) smsNodes.item(i);
             

@@ -4,9 +4,10 @@
       android:versionCode="1"
       android:versionName="1.0">
          
+    <uses-sdk android:minSdkVersion="4" />
+         
     <uses-permission android:name="android.permission.RECEIVE_SMS" />     
     <uses-permission android:name="android.permission.RECEIVE_MMS" />
-    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
@@ -39,7 +40,18 @@
             </intent-filter>
         </receiver> 	
         
-        <receiver android:name=".receiver.MessageStatusNotifier">
+        <receiver android:name=".receiver.OutgoingSmsReceiver">
+            <intent-filter>
+                <action android:name="org.envaya.kalsms.OUTGOING_SMS" />
+                <data android:scheme="content" />
+            </intent-filter>            
+        </receiver>
+        
+        <receiver android:name=".receiver.MessageStatusNotifier" android:exported="true">
+            <intent-filter>
+                <action android:name="org.envaya.kalsms.MESSAGE_STATUS" />
+                <data android:scheme="content" />
+            </intent-filter>
         </receiver>
 
         <receiver android:name=".receiver.OutgoingMessagePoller">
@@ -49,15 +61,25 @@
         </receiver>        
         
         <receiver android:name=".receiver.IncomingMessageRetry">
-        </receiver>                
+        </receiver>                                         
         
         <receiver android:name=".receiver.BootReceiver">
             <intent-filter> 
                  <action android:name="android.intent.action.BOOT_COMPLETED" /> 
             </intent-filter>
+        </receiver>
+        
+        <receiver android:name=".receiver.ExpansionPackInstallReceiver">
+            <intent-filter> 
+                 <action android:name="android.intent.action.PACKAGE_ADDED" /> 
+                 <action android:name="android.intent.action.PACKAGE_REMOVED" /> 
+                 <action android:name="android.intent.action.PACKAGE_REPLACED" /> 
+                 <data android:scheme="package" />
+            </intent-filter>            
         </receiver>        
         
         <service android:name=".CheckMmsInboxService">
         </service>        
-    </application>
+        
+    </application>    
 </manifest> 

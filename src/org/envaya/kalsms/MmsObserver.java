@@ -26,7 +26,6 @@ final class MmsObserver extends ContentObserver {
          */                
         app.getContentResolver().registerContentObserver(
             MmsUtils.OBSERVER_URI, true, this);
-        app.log("MMS content observer registered");        
         
         MmsUtils mmsUtils = app.getMmsUtils();
         
