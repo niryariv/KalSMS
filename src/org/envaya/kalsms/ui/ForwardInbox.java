@@ -11,6 +11,7 @@ import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.IncomingMessage;
+import org.envaya.kalsms.IncomingSms;
 import org.envaya.kalsms.R;
 
 
@@ -74,7 +75,7 @@ public class ForwardInbox extends ListActivity {
                 String body = cur.getString(bodyIndex);
                 long date = cur.getLong(dateIndex);
                 
-                IncomingMessage sms = new IncomingMessage(app, address, body, date);
+                IncomingMessage sms = new IncomingSms(app, address, body, date);
                 
                 app.forwardToServer(sms);
             }

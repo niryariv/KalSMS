@@ -3,9 +3,11 @@ package org.envaya.kalsms.ui;
 import org.envaya.kalsms.task.HttpTask;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Html;
@@ -19,6 +21,8 @@ import android.widget.TextView;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.kalsms.App;
+import org.envaya.kalsms.IncomingMms;
+import org.envaya.kalsms.MmsUtils;
 import org.envaya.kalsms.R;
 
 public class Main extends Activity {   
@@ -45,8 +49,6 @@ public class Main extends Activity {
             app.log("Server connection OK!");            
         }
     }
-        
-    private long lastLogTime = 0;
 
     public void updateLogView()
     {           
@@ -81,14 +83,7 @@ public class Main extends Activity {
                  
         if (savedInstanceState == null)
         {        
-            app.log(Html.fromHtml(
-                app.isEnabled() ? "<b>SMS gateway running.</b>" : "<b>SMS gateway disabled.</b>"));
-
-            app.log("Server URL is: " + app.getDisplayString(app.getServerUrl()));
-            app.log("Your phone number is: " + app.getDisplayString(app.getPhoneNumber()) );
             app.log(Html.fromHtml("<b>Press Menu to edit settings.</b>"));
-            
-            app.setOutgoingMessageAlarm();
         }
     }    
     
@@ -99,7 +94,7 @@ public class Main extends Activity {
         case R.id.settings:
             startActivity(new Intent(this, Prefs.class));
             return true;
-        case R.id.check_now:
+        case R.id.check_now:              
             app.checkOutgoingMessages();
             return true;
         case R.id.retry_now:

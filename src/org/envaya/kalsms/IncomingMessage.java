@@ -1,32 +1,21 @@
 package org.envaya.kalsms;
 
-import org.envaya.kalsms.task.ForwarderTask;
-import org.envaya.kalsms.receiver.IncomingMessageRetry;
 import android.content.Intent;
 import android.net.Uri;
-import android.telephony.SmsMessage;
-import org.apache.http.message.BasicNameValuePair;
+import org.envaya.kalsms.receiver.IncomingMessageRetry;
 
-public class IncomingMessage extends QueuedMessage {
+public abstract class IncomingMessage extends QueuedMessage {
 
-    public String from;
-    public String message;
-    public long timestampMillis;    
-
-    public IncomingMessage(App app, SmsMessage sms) {
-        super(app);
-        this.from = sms.getOriginatingAddress();
-        this.message = sms.getMessageBody();
-        this.timestampMillis = sms.getTimestampMillis();
-    }
+    protected String from;
     
-    public IncomingMessage(App app, String from, String message, long timestampMillis) {
+    public IncomingMessage(App app, String from)
+    {
         super(app);
         this.from = from;
-        this.message = message;
-        this.timestampMillis = timestampMillis;
-    }    
-
+    }
+    
+    public abstract String getDisplayType();
+       
     public boolean isForwardable()
     {
         /* 
@@ -36,37 +25,21 @@ public class IncomingMessage extends QueuedMessage {
         return from.length() > 5;
     }
     
-    public String getMessageBody()
-    {
-        return message;
-    }
-    
     public String getFrom()
     {
         return from;
     }
     
-    public String getId() 
-    {
-        return from + ":" + message + ":" + timestampMillis;
-    }    
-    
     public void retryNow() {
-        app.log("Retrying forwarding SMS from " + from);
+        app.log("Retrying forwarding message from " + from);
         tryForwardToServer();
-    }
-
-    public void tryForwardToServer() {        
-        new ForwarderTask(this,
-            new BasicNameValuePair("from", getFrom()),
-            new BasicNameValuePair("message", getMessageBody())            
-        ).execute();
-    }
-    
-    
+    }    
+ 
     protected Intent getRetryIntent() {
         Intent intent = new Intent(app, IncomingMessageRetry.class);
-        intent.setData(Uri.parse("kalsms://incoming/" + this.getId()));
+        intent.setData(this.getUri());
         return intent;
-    }
+    }    
+    
+    public abstract void tryForwardToServer();
 }

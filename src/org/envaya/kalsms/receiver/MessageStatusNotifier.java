@@ -7,6 +7,7 @@ package org.envaya.kalsms.receiver;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import org.envaya.kalsms.App;
 
 public class MessageStatusNotifier extends BroadcastReceiver {
@@ -14,7 +15,7 @@ public class MessageStatusNotifier extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         App app = (App) context.getApplicationContext();
-        String id = intent.getData().getLastPathSegment();
+        Uri uri = intent.getData();
 
         int resultCode = getResultCode();
         
@@ -26,6 +27,6 @@ public class MessageStatusNotifier extends BroadcastReceiver {
         }        
         */
         
-        app.notifyOutgoingMessageStatus(id, resultCode);        
+        app.notifyOutgoingMessageStatus(uri, resultCode);        
     }
 }

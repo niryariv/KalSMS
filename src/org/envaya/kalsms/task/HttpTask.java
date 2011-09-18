@@ -14,7 +14,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -22,6 +24,11 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.FormBodyPart;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.ContentBody;
+import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
@@ -42,6 +49,9 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     
     protected String url;    
     protected List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+
+    private List<FormBodyPart> formParts;
+    private boolean useMultipartPost = false;    
     
     public HttpTask(App app, BasicNameValuePair... paramsArr)
     {
@@ -52,7 +62,13 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         params.add(new BasicNameValuePair("version", "2"));
         params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));                       
     }
-        
+    
+    public void setFormParts(List<FormBodyPart> formParts)
+    {
+        useMultipartPost = true;
+        this.formParts = formParts;
+    }    
+    
     public HttpClient getHttpClient()
     {
         HttpParams httpParameters = new BasicHttpParams();
@@ -102,10 +118,29 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             }            
             
             HttpPost post = new HttpPost(url);
-                  
-            post.setEntity(new UrlEncodedFormEntity(params));            
+            
+     
+            if (useMultipartPost)
+            {
+                MultipartEntity entity = new MultipartEntity();//HttpMultipartMode.BROWSER_COMPATIBLE);
+
+                for (BasicNameValuePair param : params)
+                {
+                    entity.addPart(param.getName(), new StringBody(param.getValue()));
+                }
+                
+                for (FormBodyPart formPart : formParts)
+                {
+                    entity.addPart(formPart);
+                }
+                post.setEntity(entity);                                
+            }
+            else
+            {
+                post.setEntity(new UrlEncodedFormEntity(params));            
+            }
                         
-            String signature = getSignature();
+            String signature = getSignature();            
             
             post.setHeader("X-Kalsms-Signature", signature);
             

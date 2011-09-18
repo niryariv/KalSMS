@@ -4,6 +4,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.SystemClock;
 
 public abstract class QueuedMessage 
@@ -62,6 +63,8 @@ public abstract class QueuedMessage
 
         return true;
     }
+    
+    public abstract Uri getUri();
 
     public abstract void retryNow();
 

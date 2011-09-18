@@ -9,9 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.IncomingMessage;
+import org.envaya.kalsms.IncomingSms;
 
 
-public class SMSReceiver extends BroadcastReceiver {
+public class SmsReceiver extends BroadcastReceiver {
 
     private App app;   
 
@@ -64,7 +65,7 @@ public class SMSReceiver extends BroadcastReceiver {
         for (Object pdu : (Object[]) bundle.get("pdus"))
         {
             SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu);
-            messages.add(new IncomingMessage(app, sms));
+            messages.add(new IncomingSms(app, sms));
         }
         return messages;
     }

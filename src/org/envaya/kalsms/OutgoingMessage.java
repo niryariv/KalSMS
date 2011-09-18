@@ -30,9 +30,9 @@ public class OutgoingMessage extends QueuedMessage {
         return nextLocalId++;
     }
     
-    public String getId()
+    public Uri getUri()
     {
-        return (serverId == null) ? localId : serverId;
+        return Uri.withAppendedPath(App.OUTGOING_URI, ((serverId == null) ? localId : serverId));
     }
     
     public String getLogName()
@@ -90,7 +90,7 @@ public class OutgoingMessage extends QueuedMessage {
         SmsManager smgr = SmsManager.getDefault();
 
         Intent intent = new Intent(app, MessageStatusNotifier.class);
-        intent.setData(Uri.parse("kalsms://outgoing/" + getId()));
+        intent.setData(this.getUri());
 
         PendingIntent sentIntent = PendingIntent.getBroadcast(
                 app,
@@ -103,7 +103,7 @@ public class OutgoingMessage extends QueuedMessage {
 
     protected Intent getRetryIntent() {
         Intent intent = new Intent(app, OutgoingMessageRetry.class);
-        intent.setData(Uri.parse("kalsms://outgoing/" + getId()));
+        intent.setData(this.getUri());
         return intent;
     }   
 }

@@ -41,5 +41,6 @@
             android:title="Keep new messages?"      
             android:summaryOff="Incoming SMS will not be stored in Messaging inbox"
             android:summaryOn="Incoming SMS will be stored in Messaging inbox"
-    ></CheckBoxPreference>	                
+    ></CheckBoxPreference>
+    
 </PreferenceScreen>

@@ -12,6 +12,6 @@ public class IncomingMessageRetry extends BroadcastReceiver
     public void onReceive(Context context, Intent intent) 
     {        
         App app = (App) context.getApplicationContext();
-        app.retryIncomingMessage(intent.getData().getLastPathSegment());        
+        app.retryIncomingMessage(intent.getData());        
     }        
 }    

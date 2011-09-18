@@ -16,7 +16,7 @@ public class ForwarderTask extends HttpTask {
         
         params.add(new BasicNameValuePair("action", App.ACTION_INCOMING));
     }
-
+    
     @Override
     protected String getDefaultToAddress() {
         return originalSms.getFrom();
