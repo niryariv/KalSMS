@@ -74,6 +74,16 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         }
         else if (key.equals("server_url"))
         {
+            String serverUrl = sharedPreferences.getString("server_url", "");
+            
+            // assume http:// scheme if none entered
+            if (serverUrl.length() > 0 && !serverUrl.contains("://"))
+            {
+                sharedPreferences.edit()
+                    .putString("server_url", "http://" + serverUrl)
+                    .commit();
+            }
+            
             app.log("Server URL changed to: " + app.getDisplayString(app.getServerUrl()));
         }
         else if (key.equals("phone_number"))
