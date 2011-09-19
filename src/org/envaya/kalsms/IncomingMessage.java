@@ -18,6 +18,11 @@ public abstract class IncomingMessage extends QueuedMessage {
        
     public boolean isForwardable()
     {
+        if (app.isTestMode() && !app.isTestPhoneNumber(from))
+        {
+            return false;
+        }
+        
         /* 
          * don't forward messages from shortcodes
          * because they're likely to be spam or messages from network

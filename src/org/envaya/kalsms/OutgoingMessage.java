@@ -1,9 +1,6 @@
 
 package org.envaya.kalsms;
 
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import org.envaya.kalsms.receiver.OutgoingMessageRetry;
 import android.content.Intent;
 import android.net.Uri;

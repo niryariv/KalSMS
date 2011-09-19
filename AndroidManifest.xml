@@ -25,14 +25,16 @@
             </intent-filter>
         </activity>
         
-        <activity android:name=".ui.Help" android:label="@string/app_name">
-        </activity>        
-        
-        <activity android:name=".ui.ForwardInbox" android:label="@string/app_name">
+        <activity android:name=".ui.Help" android:label="KalSMS : Help">
         </activity>        
 
-        <activity android:name=".ui.Prefs"
-          android:label="@string/app_name">
+        <activity android:name=".ui.TestPhoneNumbers" android:label="KalSMS : Test Phone Numbers">
+        </activity>                
+        
+        <activity android:name=".ui.ForwardInbox" android:label="KalSMS : Forward Inbox">
+        </activity>        
+
+        <activity android:name=".ui.Prefs" android:label="KalSMS : Settings">
         </activity>
 
         <receiver android:name=".receiver.SmsReceiver">

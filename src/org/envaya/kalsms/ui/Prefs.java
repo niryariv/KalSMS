@@ -90,6 +90,10 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         {
             app.log("Phone number changed to: " + app.getDisplayString(app.getPhoneNumber()));
         }
+        else if (key.equals("test_mode"))
+        {
+            app.log("Test mode changed to: " + (app.isTestMode() ? "ON": "OFF"));
+        }        
         else if (key.equals("password"))
         {
             app.log("Password changed");

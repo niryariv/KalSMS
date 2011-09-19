@@ -20,7 +20,7 @@ public class Help extends Activity {
         String html = "<b>KalSMS</b> is a SMS gateway.<br /><br /> "
             + "It forwards all incoming SMS messages received by this phone to a server on the internet, "
             + "and also sends outgoing SMS messages from that server to other phones.<br /><br />"
-            + "(See https://kalsms.net for information about setting up a server.)<br /><br />"
+            + "(See https://kalsms.net for more information.)<br /><br />"
             + "The Settings screen allows you configure KalSMS to work with a particular server, "
             + "by entering the server URL, your phone number, "
             + "and the password assigned to your phone on the server.<br /><br />"

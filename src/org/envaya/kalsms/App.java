@@ -18,6 +18,7 @@ import android.text.SpannableStringBuilder;
 import android.util.Log;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,8 @@ import org.apache.http.message.BasicNameValuePair;
 import org.envaya.kalsms.receiver.OutgoingMessagePoller;
 import org.envaya.kalsms.task.HttpTask;
 import org.envaya.kalsms.task.PollerTask;
+import org.json.JSONArray;
+import org.json.JSONException;
 
 public final class App extends Application {
     
@@ -106,6 +109,17 @@ public final class App extends Application {
 
         log("Server URL is: " + getDisplayString(getServerUrl()));
         log("Your phone number is: " + getDisplayString(getPhoneNumber()));        
+        
+        if (isTestMode())
+        {
+            log("Test mode is ON");
+            log("Test phone numbers:");
+            
+            for (String sender : getTestPhoneNumbers())
+            {
+                log("  " + sender);
+            }
+        }
         
         mmsObserver = new MmsObserver(this);
         mmsObserver.register();
@@ -270,6 +284,11 @@ public final class App extends Application {
         return settings.getBoolean("enabled", false);
     }
     
+    public boolean isTestMode()
+    {
+        return settings.getBoolean("test_mode", false);
+    }
+    
     public boolean getKeepInInbox() 
     {
         return settings.getBoolean("keep_in_inbox", false);        
@@ -392,6 +411,16 @@ public final class App extends Application {
     }
 
     public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
+        
+        if (isTestMode() && !isTestPhoneNumber(sms.getTo()))
+        {
+            // this is mostly to prevent accidentally sending real messages to
+            // random people while testing...
+            
+            log("Ignoring outgoing SMS to " + sms.getTo());
+            return;
+        }
+        
         Uri uri = sms.getUri();
         if (outgoingMessages.containsKey(uri)) {
             log("Duplicate outgoing " + sms.getLogName() + ", skipping");
@@ -505,5 +534,70 @@ public final class App extends Application {
     public MmsUtils getMmsUtils()
     {
         return mmsUtils;
+    }
+    
+    private List<String> testPhoneNumbers;
+    
+    public List<String> getTestPhoneNumbers()
+    {        
+        if (testPhoneNumbers == null)
+        {          
+            testPhoneNumbers = new ArrayList<String>();
+            String phoneNumbersJson = settings.getString("test_phone_numbers", "");
+            
+            if (phoneNumbersJson.length() > 0)
+            {
+                try
+                {                                
+                    JSONArray arr = new JSONArray(phoneNumbersJson);
+                    int numSenders = arr.length();
+                    for (int i = 0; i < numSenders; i++)
+                    {                    
+                        testPhoneNumbers.add(arr.getString(i));                    
+                    }
+                }
+                catch (JSONException ex)
+                {
+                    logError("Error parsing test phone numbers", ex);
+                }            
+            }
+        }
+        return testPhoneNumbers;
+    }
+    
+    public void addTestPhoneNumber(String phoneNumber)
+    {
+        List<String> phoneNumbers = getTestPhoneNumbers();
+        log("Added test phone number: " + phoneNumber);
+        phoneNumbers.add(phoneNumber);
+        saveTestPhoneNumbers(phoneNumbers);
+    }
+    
+    public void removeTestPhoneNumber(String phoneNumber)
+    {
+        List<String> phoneNumbers = getTestPhoneNumbers();
+        phoneNumbers.remove(phoneNumber);
+        log("Removed test phone number: " + phoneNumber);
+        saveTestPhoneNumbers(phoneNumbers);
+    }
+    
+    private void saveTestPhoneNumbers(List<String> phoneNumbers)
+    {
+        settings.edit().putString("test_phone_numbers", 
+            new JSONArray(phoneNumbers).toString()
+        ).commit();
+    }    
+    
+    public boolean isTestPhoneNumber(String phoneNumber)
+    {            
+        for (String testNumber : getTestPhoneNumbers())
+        {
+            // handle inexactness due to various different ways of formatting numbers
+            if (testNumber.contains(phoneNumber) || phoneNumber.contains(testNumber))
+            {
+                return true;
+            }
+        }        
+        return false;
     }
 }

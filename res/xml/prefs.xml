@@ -4,7 +4,7 @@
       
     <CheckBoxPreference
             android:key="enabled" 
-            android:title="Enable KalSMS?" 
+            android:title="Enable KalSMS" 
             android:defaultValue='false'
             android:summaryOn="All new SMS will be forwarded between phone and server"
             android:summaryOff="New SMS will not be forwarded between phone and server"
@@ -13,12 +13,14 @@
     <EditTextPreference 
             android:key="server_url" 
             android:title="Server URL" 
+            android:inputType="textUri"
             android:defaultValue=""
     ></EditTextPreference>
 
     <EditTextPreference 
             android:key="phone_number" 
             android:title="Your phone number" 
+            android:inputType="phone"
             android:defaultValue=""
     ></EditTextPreference>
 
@@ -38,7 +40,7 @@
 
     <CheckBoxPreference
             android:key="keep_in_inbox"
-            android:title="Keep new messages?"      
+            android:title="Keep new messages"      
             android:summaryOff="Incoming SMS will not be stored in Messaging inbox"
             android:summaryOn="Incoming SMS will be stored in Messaging inbox"
     ></CheckBoxPreference>
@@ -50,6 +52,25 @@
             android:entries="@array/wifi_sleep_policies"
             android:entryValues="@array/wifi_sleep_policies_values"            
     >           
-    </ListPreference>        
+    </ListPreference>
     
+    <CheckBoxPreference
+            android:key="test_mode"
+            android:title="Test mode"
+            android:summaryOff="Test mode is off (KalSMS forwards all SMS)"
+            android:summaryOn="Test mode is on (KalSMS only forwards SMS to/from specific phones)"
+    ></CheckBoxPreference>
+    
+    <PreferenceScreen 
+        android:key="test_numbers" 
+        android:title="Sender phones"
+        android:dependency="test_mode"
+        android:summary="Configure the phone numbers that KalSMS will handle"
+    >
+       <intent 
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="org.envaya.kalsms"
+            android:targetClass="org.envaya.kalsms.ui.TestPhoneNumbers" />
+    </PreferenceScreen>
+
 </PreferenceScreen>

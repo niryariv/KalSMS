@@ -27,31 +27,27 @@ public class SmsReceiver extends BroadcastReceiver {
         }
         
         try {
-            String action = intent.getAction();
+            boolean hasUnhandledMessage = false;
 
-            if (action.equals("android.provider.Telephony.SMS_RECEIVED")) {
-                
-                boolean hasUnhandledMessage = false;
-                
-                for (IncomingMessage sms : getMessagesFromIntent(intent)) {                    
-                    
-                    if (sms.isForwardable())
-                    {                    
-                        app.forwardToServer(sms);
-                    }
-                    else
-                    {
-                        hasUnhandledMessage = true;
-                    }
+            for (IncomingMessage sms : getMessagesFromIntent(intent)) {                    
+
+                if (sms.isForwardable())
+                {                    
+                    app.forwardToServer(sms);
                 }
-                
-                if (!hasUnhandledMessage && !app.getKeepInInbox())
+                else
                 {
-                    this.abortBroadcast();
+                    app.log("Ignoring incoming SMS from " + sms.getFrom());
+                    hasUnhandledMessage = true;
                 }
             }
+
+            if (!hasUnhandledMessage && !app.getKeepInInbox())
+            {
+                this.abortBroadcast();
+            }
         } catch (Throwable ex) {
-            app.logError("Unexpected error in IncomingMessageForwarder", ex, true);
+            app.logError("Unexpected error in SmsReceiver", ex, true);
         }
     }
 
