@@ -24,4 +24,16 @@
         <item>3600</item>        
         <item>0</item>        
     </string-array>
+    
+    <string-array name="wifi_sleep_policies">        
+        <item>disconnect when screen turns off</item>
+        <item>stay connected when plugged in</item>
+        <item>always stay connected</item>
+    </string-array>
+    
+    <string-array name="wifi_sleep_policies_values">
+        <item>screen</item>
+        <item>plugged</item>
+        <item>never</item>
+    </string-array>    
 </resources>

@@ -18,7 +18,7 @@
 
     <EditTextPreference 
             android:key="phone_number" 
-            android:title="Your Phone Number" 
+            android:title="Your phone number" 
             android:defaultValue=""
     ></EditTextPreference>
 
@@ -42,5 +42,14 @@
             android:summaryOff="Incoming SMS will not be stored in Messaging inbox"
             android:summaryOn="Incoming SMS will be stored in Messaging inbox"
     ></CheckBoxPreference>
+    
+    <ListPreference
+            android:key="wifi_sleep_policy" 
+            android:title="Wi-Fi sleep policy"
+            android:defaultValue="never"
+            android:entries="@array/wifi_sleep_policies"
+            android:entryValues="@array/wifi_sleep_policies_values"            
+    >           
+    </ListPreference>        
     
 </PreferenceScreen>

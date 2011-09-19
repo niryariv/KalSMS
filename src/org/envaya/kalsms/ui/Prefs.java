@@ -8,6 +8,8 @@ import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
+import android.provider.Settings;
+import android.provider.Settings.SettingNotFoundException;
 import android.view.Menu;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.R;
@@ -50,6 +52,26 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         {            
             app.setOutgoingMessageAlarm();
         }
+        else if (key.equals("wifi_sleep_policy"))
+        {
+            int value;
+            String valueStr = sharedPreferences.getString("wifi_sleep_policy", "screen");
+            if ("screen".equals(valueStr))
+            {
+                value = Settings.System.WIFI_SLEEP_POLICY_DEFAULT;
+            }
+            else if ("plugged".equals(valueStr))
+            {
+                value = Settings.System.WIFI_SLEEP_POLICY_NEVER_WHILE_PLUGGED;
+            }
+            else 
+            {
+                value = Settings.System.WIFI_SLEEP_POLICY_NEVER;
+            }
+            
+            Settings.System.putInt(getContentResolver(), 
+                Settings.System.WIFI_SLEEP_POLICY, value);
+        }
         else if (key.equals("server_url"))
         {
             app.log("Server URL changed to: " + app.getDisplayString(app.getServerUrl()));
@@ -73,7 +95,34 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 
     private void updatePrefSummary(Preference p)
     {
-        if (p instanceof ListPreference) {
+        if ("wifi_sleep_policy".equals(p.getKey()))
+        {       
+            int sleepPolicy;
+            
+            try
+            {
+                sleepPolicy = Settings.System.getInt(this.getContentResolver(), 
+                    Settings.System.WIFI_SLEEP_POLICY);                
+            }
+            catch (SettingNotFoundException ex)
+            {
+                sleepPolicy = Settings.System.WIFI_SLEEP_POLICY_DEFAULT;
+            }               
+            
+            switch (sleepPolicy)
+            {
+                case Settings.System.WIFI_SLEEP_POLICY_DEFAULT:
+                    p.setSummary("Wi-Fi will disconnect when the phone sleeps");
+                    break;
+                case Settings.System.WIFI_SLEEP_POLICY_NEVER_WHILE_PLUGGED:
+                    p.setSummary("Wi-Fi will disconnect when the phone sleeps unless it is plugged in");
+                    break;
+                case Settings.System.WIFI_SLEEP_POLICY_NEVER:
+                    p.setSummary("Wi-Fi will stay connected when the phone sleeps");
+                    break;
+            }
+        }
+        else if (p instanceof ListPreference) {
             p.setSummary(((ListPreference)p).getEntry()); 
         }
         else if (p instanceof EditTextPreference) {

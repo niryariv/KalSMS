@@ -1,24 +1,6 @@
 KalSMS is an Android app that acts as a SMS and MMS gateway. 
-For more information, see http://youngj.github.com/KalSMS/
 
-Features
---------
-*   Can be deployed almost anywhere in the world
-*   Designed to allow non-technical users to do all setup/maintenance 
-    of deployed phones
-*   Can send outgoing SMS in excess of Android's limit of 100 messages 
-    per app per hour by installing expansion packs
-*   Many different phones running KalSMS can be connected to a single server 
-    (each phone could forward messages for a different mobile network)
-*   Authenticates with password shared between phone and server
-*   Retries forwarding messages after a delay if there is an error 
-    (e.g. due to temporarily broken internet or GSM connection)
-*   Notifies the server of the status of outgoing messages
-*   Forwards incoming MMS messages (pictures/video/audio)
-*   Shows log messages to user to facilitate troubleshooting
-*   Can prevent incoming messages from being stored in Messaging inbox
-*   Can forward messages already received in Messaging inbox
-    
-License
--------
+For more information and installation instructions, 
+see http://youngj.github.com/KalSMS/
+
 The code is released under the MIT license; see LICENSE
