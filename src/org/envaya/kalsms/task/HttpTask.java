@@ -53,7 +53,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         this.app = app;        
         this.url = app.getServerUrl();
         params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));            
-        params.add(new BasicNameValuePair("version", "2"));
+        params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
         params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));                       
     }
     

@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -23,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.client.HttpClient;
-import org.apache.http.conn.params.ConnManagerParams;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
@@ -96,6 +97,8 @@ public final class App extends Application {
     private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
     private long lastLogTime;    
     
+    private PackageInfo packageInfo;
+    
     // list of package names (e.g. org.envaya.kalsms, or org.envaya.kalsms.packXX)
     // for this package and all expansion packs
     private List<String> outgoingMessagePackages = new ArrayList<String>();
@@ -119,6 +122,17 @@ public final class App extends Application {
         
         outgoingMessagePackages.add(getPackageName());
         
+        try
+        {
+            packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+        }
+        catch (NameNotFoundException ex)
+        {
+            // should not happen
+            logError("Error finding package info", ex);
+            return;
+        }              
+        
         updateExpansionPacks();
         
         log(Html.fromHtml(
@@ -136,7 +150,7 @@ public final class App extends Application {
             {
                 log("  " + sender);
             }
-        }
+        }                  
         
         mmsObserver = new MmsObserver(this);
         mmsObserver.register();
@@ -149,6 +163,12 @@ public final class App extends Application {
     {     
         startService(new Intent(this, ForegroundService.class));        
     }
+    
+    public PackageInfo getPackageInfo()
+    {
+        return packageInfo;
+    }
+    
     
     public synchronized String chooseOutgoingSmsPackage()
     {
