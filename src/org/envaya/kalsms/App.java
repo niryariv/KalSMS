@@ -58,10 +58,7 @@ public final class App extends Application {
     
     // intent to signal to Main activity (if open) that log has changed
     public static final String LOG_INTENT = "org.envaya.kalsms.LOG";
-    
-    public static final String START_INTENT = "org.envaya.kalsms.START";
-    public static final String STOP_INTENT = "org.envaya.kalsms.STOP";
-            
+                
     public static final String QUERY_EXPANSION_PACKS_INTENT = "org.envaya.kalsms.QUERY_EXPANSION_PACKS";
     public static final String QUERY_EXPANSION_PACKS_EXTRA_PACKAGES = "packages";
     
