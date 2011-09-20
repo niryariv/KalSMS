@@ -38,6 +38,7 @@ org.envaya.kalsms.ui.InertCheckBox and org.envaya.kalsms.ui.CheckableRelativeLay
     is (c) Cédric Caron, released presumably into the public domain at
     http://www.marvinlabs.com/2010/10/custom-listview-ability-check-items/
     
-org.envaya.kalsms.App.chooseOutgoingSmsPackage includes code from Android,
-    Copyright 2005-2008 The Android Open Source Project
+org.envaya.kalsms.App.chooseOutgoingSmsPackage and 
+org.envaya.kalsms.ForegroundService include code from Android,
+    Copyright 2005-2009 The Android Open Source Project
     See NOTICE

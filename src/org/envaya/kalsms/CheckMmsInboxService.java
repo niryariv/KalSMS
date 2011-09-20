@@ -42,7 +42,14 @@ public class CheckMmsInboxService extends IntentService
                 // times if we don't delete them.
                 mmsUtils.markOldMms(mms);                 
 
-                app.forwardToServer(mms);                                    
+                if (mms.isForwardable())
+                {                
+                    app.forwardToServer(mms);                                    
+                }
+                else
+                {
+                    app.log("Ignoring incoming MMS from " + mms.getFrom());
+                }
             }
         }
     }

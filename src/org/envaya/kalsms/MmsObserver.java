@@ -1,12 +1,9 @@
 package org.envaya.kalsms;
 
-import android.app.IntentService;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.os.Handler;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 final class MmsObserver extends ContentObserver {
 

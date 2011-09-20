@@ -82,6 +82,9 @@
         </receiver>        
         
         <service android:name=".CheckMmsInboxService">
+        </service>
+
+        <service android:name=".ForegroundService">
         </service>        
         
     </application>    

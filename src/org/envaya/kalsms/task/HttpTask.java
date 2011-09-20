@@ -26,7 +26,6 @@ import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.Base64Coder;
 import org.envaya.kalsms.OutgoingMessage;
@@ -210,6 +209,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             try
             {
                 handleResponse(response);            
+                response.getEntity().consumeContent();
             }
             catch (Throwable ex)
             {
@@ -226,10 +226,6 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     
     protected void handleResponse(HttpResponse response) throws Exception
     {
-        if (response != null)
-        {
-            response.getEntity().consumeContent();
-        }
     }    
     
     protected void handleFailure()

@@ -102,6 +102,7 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         {
             app.log(app.isEnabled() ? "SMS Gateway started." : "SMS Gateway stopped.");
             app.setOutgoingMessageAlarm();
+            app.updateEnabledNotification();
         }
         
         updatePrefSummary(findPreference(key));
