@@ -14,9 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -25,15 +23,10 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.FormBodyPart;
-import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.ContentBody;
 import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
+import org.apache.http.util.EntityUtils;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.Base64Coder;
 import org.envaya.kalsms.OutgoingMessage;
@@ -53,6 +46,8 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     private List<FormBodyPart> formParts;
     private boolean useMultipartPost = false;    
     
+    private HttpPost post;
+    
     public HttpTask(App app, BasicNameValuePair... paramsArr)
     {
         super();
@@ -67,15 +62,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     {
         useMultipartPost = true;
         this.formParts = formParts;
-    }    
-    
-    public HttpClient getHttpClient()
-    {
-        HttpParams httpParameters = new BasicHttpParams();
-        HttpConnectionParams.setConnectionTimeout(httpParameters, 8000);
-        HttpConnectionParams.setSoTimeout(httpParameters, 8000);                    
-        return new DefaultHttpClient(httpParameters);        
-    }            
+    }                  
     
     private String getSignature()
             throws NoSuchAlgorithmException, UnsupportedEncodingException
@@ -110,16 +97,15 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     }    
     
     protected HttpResponse doInBackground(String... ignored) {
+        if (url.length() == 0) {
+            app.log("Can't contact server; Server URL not set");                        
+            return null;
+        }
+
+        post = new HttpPost(url);        
+        
         try
-        {  
-            if (url.length() == 0) {
-                app.log("Can't contact server; Server URL not set");                        
-                return null;
-            }            
-            
-            HttpPost post = new HttpPost(url);
-            
-     
+        {              
             if (useMultipartPost)
             {
                 MultipartEntity entity = new MultipartEntity();//HttpMultipartMode.BROWSER_COMPATIBLE);
@@ -144,9 +130,9 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             
             post.setHeader("X-Kalsms-Signature", signature);
             
-            HttpClient client = getHttpClient();
+            HttpClient client = app.getHttpClient();
             HttpResponse response = client.execute(post);            
-            
+
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode == 200) 
             {
@@ -154,29 +140,32 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             } 
             else if (statusCode == 403)
             {
+                response.getEntity().consumeContent();
                 app.log("Failed to authenticate to server");
                 app.log("(Phone number or password may be incorrect)");                
                 return null;
             }
             else 
             {
+                response.getEntity().consumeContent();
                 app.log("Received HTTP " + statusCode + " from server");
                 return null;
             }            
         } 
         catch (IOException ex) 
         {
+            post.abort();
             app.logError("Error while contacting server", ex);
             return null;
         }
         catch (Throwable ex) 
         {
+            post.abort();
             app.logError("Unexpected error while contacting server", ex, true);
             return null;
-        }
-        
+        }        
     }
-        
+    
     protected String getDefaultToAddress()
     {
         return "";
@@ -224,6 +213,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             }
             catch (Throwable ex)
             {
+                post.abort();
                 app.logError("Error processing server response", ex);
                 handleFailure();
             }
@@ -236,6 +226,10 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     
     protected void handleResponse(HttpResponse response) throws Exception
     {
+        if (response != null)
+        {
+            response.getEntity().consumeContent();
+        }
     }    
     
     protected void handleFailure()

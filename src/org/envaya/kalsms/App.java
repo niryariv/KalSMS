@@ -18,12 +18,23 @@ import android.text.SpannableStringBuilder;
 import android.util.Log;
 import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.params.ConnManagerParams;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 import org.envaya.kalsms.receiver.OutgoingMessagePoller;
 import org.envaya.kalsms.task.HttpTask;
 import org.envaya.kalsms.task.PollerTask;
@@ -83,13 +94,19 @@ public final class App extends Application {
     private SharedPreferences settings;
     private MmsObserver mmsObserver;
     private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
-    private long lastLogTime;
+    private long lastLogTime;    
     
+    // list of package names (e.g. org.envaya.kalsms, or org.envaya.kalsms.packXX)
+    // for this package and all expansion packs
     private List<String> outgoingMessagePackages = new ArrayList<String>();
+    
+    // count to provide round-robin selection of expansion packs
     private int outgoingMessageCount = -1;
+    
+    // map of package name => sorted list of timestamps of outgoing messages
     private HashMap<String, ArrayList<Long>> outgoingTimestamps
             = new HashMap<String, ArrayList<Long>>();
-    
+        
     private MmsUtils mmsUtils;
     
     @Override
@@ -147,6 +164,7 @@ public final class App extends Application {
             }                
             
             ArrayList<Long> sent = outgoingTimestamps.get(packageName);        
+            
             Long ct = System.currentTimeMillis();
 
             //log(packageName + " SMS send size=" + sent.size());
@@ -599,5 +617,34 @@ public final class App extends Application {
             }
         }        
         return false;
-    }
+    }    
+    
+    private HttpClient httpClient;
+    
+    public synchronized HttpClient getHttpClient()
+    {
+        if (httpClient == null)
+        {
+            // via http://thinkandroid.wordpress.com/2009/12/31/creating-an-http-client-example/
+            // also http://hc.apache.org/httpclient-3.x/threading.html
+            
+            HttpParams httpParams = new BasicHttpParams();
+            HttpConnectionParams.setConnectionTimeout(httpParams, 8000);
+            HttpConnectionParams.setSoTimeout(httpParams, 8000);                    
+            HttpProtocolParams.setContentCharset(httpParams, "utf-8");            
+            
+            SchemeRegistry registry = new SchemeRegistry();
+            registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+            
+            final SSLSocketFactory sslSocketFactory = SSLSocketFactory.getSocketFactory();            
+            sslSocketFactory.setHostnameVerifier(SSLSocketFactory.BROWSER_COMPATIBLE_HOSTNAME_VERIFIER);
+            
+            registry.register(new Scheme("https", sslSocketFactory, 443));
+
+            ThreadSafeClientConnManager manager = new ThreadSafeClientConnManager(httpParams, registry);            
+            
+            httpClient = new DefaultHttpClient(manager, httpParams);        
+        }
+        return httpClient;
+    }      
 }
