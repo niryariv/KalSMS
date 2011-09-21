@@ -79,12 +79,7 @@ public class Main extends Activity {
         
         IntentFilter logReceiverFilter = new IntentFilter();        
         logReceiverFilter.addAction(App.LOG_INTENT);
-        registerReceiver(logReceiver, logReceiverFilter);                        
-                 
-        if (savedInstanceState == null)
-        {        
-            app.log(Html.fromHtml("<b>Press Menu to edit settings.</b>"));
-        }
+        registerReceiver(logReceiver, logReceiverFilter);
     }    
     
     @Override

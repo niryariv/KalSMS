@@ -122,6 +122,8 @@ public final class App extends Application {
         
         outgoingMessagePackages.add(getPackageName());
         
+        mmsObserver = new MmsObserver(this);
+        
         try
         {
             packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
@@ -140,7 +142,7 @@ public final class App extends Application {
 
         log("Server URL is: " + getDisplayString(getServerUrl()));
         log("Your phone number is: " + getDisplayString(getPhoneNumber()));        
-        
+                
         if (isTestMode())
         {
             log("Test mode is ON");
@@ -150,19 +152,27 @@ public final class App extends Application {
             {
                 log("  " + sender);
             }
-        }                  
+        }                          
+                
+        enabledChanged();
         
-        mmsObserver = new MmsObserver(this);
-        mmsObserver.register();
-        
-        setOutgoingMessageAlarm();        
-        updateEnabledNotification();
+        log(Html.fromHtml("<b>Press Menu to edit settings.</b>"));
     }   
     
-    public void updateEnabledNotification()
-    {     
+    public void enabledChanged()
+    {        
+        if (isEnabled())
+        {
+            mmsObserver.register();   
+        }
+        else
+        {
+            mmsObserver.unregister();
+        }        
+        
+        setOutgoingMessageAlarm();
         startService(new Intent(this, ForegroundService.class));        
-    }
+    }    
     
     public PackageInfo getPackageInfo()
     {

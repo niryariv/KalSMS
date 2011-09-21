@@ -16,11 +16,6 @@ final class MmsObserver extends ContentObserver {
     
     public void register()
     {
-        /*
-         * Content observers can watch the MMS inbox URI for changes; 
-         * This is the URL passed to PduPersister.persist by
-         * com.android.mms.transaction.RetrieveTransaction.run
-         */                
         app.getContentResolver().registerContentObserver(
             MmsUtils.OBSERVER_URI, true, this);
         
@@ -31,6 +26,11 @@ final class MmsObserver extends ContentObserver {
         {
             mmsUtils.markOldMms(mms);
         }
+    }
+    
+    public void unregister()
+    {
+        app.getContentResolver().unregisterContentObserver(this);
     }
              
     @Override
