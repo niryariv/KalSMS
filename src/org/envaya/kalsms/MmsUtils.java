@@ -4,6 +4,7 @@ package org.envaya.kalsms;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +30,7 @@ public class MmsUtils
     private static final int MESSAGE_TYPE_RETRIEVE_CONF = 0x84;
     
     // todo -- prevent unbounded growth?
-    private final Set<String> seenMmsContentLocations = new HashSet<String>();
+    private final Set<Long> seenMmsIds = new HashSet<Long>();
     
     private App app;
     private ContentResolver contentResolver;
@@ -43,7 +44,7 @@ public class MmsUtils
     private List<MmsPart> getMmsParts(long id)
     {        
         Cursor cur = contentResolver.query(PART_URI, new String[] {
-            "_id", "ct", "name", "text", "cid"
+            "_id", "ct", "name", "text", "cid", "_data"
         }, "mid = ?", new String[] { "" + id }, null);
 
         // assume that if there is at least one part saved in database
@@ -58,7 +59,9 @@ public class MmsUtils
             MmsPart part = new MmsPart(app, partId);
             part.setContentType(cur.getString(1));
             part.setName(cur.getString(2));
-            
+
+            part.setDataFile(cur.getString(5));
+                
             // todo interpret charset like com.google.android.mms.pdu.EncodedStringValue
             part.setText(cur.getString(3));
             
@@ -105,18 +108,18 @@ public class MmsUtils
 
         Cursor c = contentResolver.query(INBOX_URI, 
                 new String[] {"_id", "ct_l"}, 
-                "m_type = ? AND ct_l is not NULL", new String[] { m_type }, null);
-                
+                "m_type = ? ", new String[] { m_type }, null);
+        
         List<IncomingMms> messages = new ArrayList<IncomingMms>();        
         
         while (c.moveToNext())
         {         
             long id = c.getLong(0);                               
-            
+                        
             IncomingMms mms = new IncomingMms(app, getSenderNumber(id), id);
             
             mms.setContentLocation(c.getString(1));
-            
+                        
             for (MmsPart part : getMmsParts(id))
             {
                 mms.addPart(part);
@@ -129,48 +132,39 @@ public class MmsUtils
         return messages;
     }
     
-    public boolean deleteFromInbox(IncomingMms mms)
+    public synchronized boolean deleteFromInbox(IncomingMms mms)
     {        
-        String contentLocation = mms.getContentLocation();
-        
-        int res;
-        if (contentLocation != null)
-        {        
-            Uri uri = Uri.parse("content://mms/inbox");
-
-            /*
-             * Delete by content location (ct_l) rather than _id so that 
-             * M-Notification.ind and M-Retrieve.conf messages are both deleted 
-             * (otherwise it would remain in Messaging inbox with a Download button)
-             */
-
-            res = contentResolver.delete(uri, 
-                "ct_l = ?",
-                new String[] { contentLocation });       
+        long id = mms.getId();
+                
+        Uri uri = Uri.parse("content://mms/inbox/" + id);            
+        int res = contentResolver.delete(uri, null, null);
+                
+        if (res > 0)
+        {
+            app.log("MMS id="+id+" deleted from inbox");
+            
+            // remove id from set because Messaging app reuses ids 
+            // of deleted messages.             
+            // TODO: handle reuse of IDs deleted directly through Messaging
+            // app while KalSMS is running
+            seenMmsIds.remove(id);
         }
         else
         {
-            app.log("mms has no content-location");
-            Uri uri = Uri.parse("content://mms/inbox/" + mms.getId());            
-            res = contentResolver.delete(uri, null, null);
+            app.log("MMS id="+id+" could not be deleted from inbox");
         }
-        
-        app.log(res + " rows deleted");
         return res  > 0;
     }
     
     public synchronized void markOldMms(IncomingMms mms)
     {
-        String contentLocation = mms.getContentLocation();
-        if (contentLocation != null)
-        {
-            seenMmsContentLocations.add(contentLocation);
-        }
+        long id = mms.getId();        
+        seenMmsIds.add(id);
     }
     
     public synchronized boolean isNewMms(IncomingMms mms)
     {
-        String contentLocation = mms.getContentLocation();        
-        return contentLocation != null && !seenMmsContentLocations.contains(contentLocation);
-    }    
+        long id = mms.getId();        
+        return !seenMmsIds.contains(id);
+    }
 }        

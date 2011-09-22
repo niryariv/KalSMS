@@ -34,9 +34,10 @@ public class CheckMmsInboxService extends IntentService
     {            
         List<IncomingMms> messages = mmsUtils.getMessagesInInbox();
         for (IncomingMms mms : messages)
-        {
+        {                        
             if (mmsUtils.isNewMms(mms))
             {
+                app.log("New MMS id=" + mms.getId() + " in inbox");
                 // prevent forwarding MMS messages that existed in inbox
                 // before KalSMS started, or re-forwarding MMS multiple 
                 // times if we don't delete them.

@@ -1,7 +1,9 @@
 package org.envaya.kalsms;
 
 import android.net.Uri;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 
 public class MmsPart {
@@ -11,6 +13,7 @@ public class MmsPart {
     private String name;
     private String text;
     private String cid;
+    private String dataFile;
     
     public MmsPart(App app, long partId)
     {
@@ -87,6 +90,60 @@ public class MmsPart {
     {
         return text;
     }    
+    
+    public void setDataFile(String dataFile)
+    {
+        this.dataFile = dataFile;
+    }
+    
+    public String getDataFile()
+    {
+        return dataFile;
+    }
+    
+    public long getDataLength()
+    {
+        if (dataFile != null)
+        {
+            return new File(dataFile).length();
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    
+    public byte[] getData() throws IOException
+    {
+        int length = (int)getDataLength();
+        byte[] bytes = new byte[length];
+
+        int offset = 0;
+        int bytesRead = 0;
+
+        InputStream in = openInputStream();
+
+        while (offset < bytes.length) 
+        {                 
+            bytesRead = in.read(bytes, offset, bytes.length - offset);
+
+            if (bytesRead < 0)
+            {
+                break;
+            }
+
+            offset += bytesRead;
+        }
+
+        in.close();
+        
+        if (offset < bytes.length)
+        {
+            throw new IOException("Failed to read complete data of MMS part");
+        }
+        
+        return bytes;
+    }
     
     /* 
      * For multimedia parts, the _data column of the MMS Parts table contains the

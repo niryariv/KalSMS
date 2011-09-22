@@ -8,6 +8,7 @@ import android.os.AsyncTask;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -19,13 +20,17 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpVersion;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 import org.envaya.kalsms.App;
 import org.envaya.kalsms.Base64Coder;
 import org.envaya.kalsms.OutgoingMessage;
@@ -109,27 +114,30 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             {
                 MultipartEntity entity = new MultipartEntity();//HttpMultipartMode.BROWSER_COMPATIBLE);
 
+                Charset charset = Charset.forName("UTF-8");
+                
                 for (BasicNameValuePair param : params)
                 {
-                    entity.addPart(param.getName(), new StringBody(param.getValue()));
+                    entity.addPart(param.getName(), new StringBody(param.getValue(), charset));
                 }
                 
                 for (FormBodyPart formPart : formParts)
                 {
                     entity.addPart(formPart);
                 }
-                post.setEntity(entity);                                
+                post.setEntity(entity);                                                
             }
             else
             {
                 post.setEntity(new UrlEncodedFormEntity(params));            
             }
                         
+            HttpClient client = app.getHttpClient();
+            
             String signature = getSignature();            
             
             post.setHeader("X-Kalsms-Signature", signature);
             
-            HttpClient client = app.getHttpClient();
             HttpResponse response = client.execute(post);            
 
             int statusCode = response.getStatusLine().getStatusCode();

@@ -36,7 +36,6 @@ final class MmsObserver extends ContentObserver {
     @Override
     public void onChange(final boolean selfChange) {
         super.onChange(selfChange);
-        
         if (!selfChange)
         {
             // check MMS inbox in an IntentService since it may be slow

@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="org.envaya.kalsms"
       android:versionCode="3"
-      android:versionName="2.0-beta 2">
+      android:versionName="2.0-beta 3">
          
     <uses-sdk android:minSdkVersion="4" />
          

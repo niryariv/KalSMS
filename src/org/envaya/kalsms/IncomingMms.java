@@ -11,7 +11,6 @@ import java.util.List;
 import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.kalsms.task.ForwarderTask;
 
@@ -106,21 +105,24 @@ public class IncomingMms extends IncomingMessage {
             {                
                 if (contentType != null)
                 {
-                    contentType += "; charset=utf-8";
+                    contentType += "; charset=UTF-8";
                 }                
                 
                 body = new ByteArrayBody(text.getBytes(), contentType, partName);
             }
             else
             {
+                // avoid using InputStreamBody because it forces the HTTP request
+                // to be sent using Transfer-Encoding: chunked, which is not
+                // supported by some web servers (including nginx)
+                
                 try
                 {
-                    body = new InputStreamBody(part.openInputStream(), 
-                        contentType, partName);
+                    body = new ByteArrayBody(part.getData(), contentType, partName);
                 }
                 catch (IOException ex)
                 {
-                    app.logError("Error opening data for " + part.toString(), ex);
+                    app.logError("Error reading data for " + part.toString(), ex);
                     continue;
                 }
             }

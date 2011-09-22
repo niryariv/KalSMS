@@ -657,6 +657,15 @@ public final class App extends Application {
     
     private HttpClient httpClient;
     
+    public HttpParams getDefaultHttpParams()
+    {
+        HttpParams httpParams = new BasicHttpParams();
+        HttpConnectionParams.setConnectionTimeout(httpParams, 8000);
+        HttpConnectionParams.setSoTimeout(httpParams, 8000);                    
+        HttpProtocolParams.setContentCharset(httpParams, "UTF-8");            
+        return httpParams;
+    }
+    
     public synchronized HttpClient getHttpClient()
     {
         if (httpClient == null)
@@ -664,10 +673,7 @@ public final class App extends Application {
             // via http://thinkandroid.wordpress.com/2009/12/31/creating-an-http-client-example/
             // also http://hc.apache.org/httpclient-3.x/threading.html
             
-            HttpParams httpParams = new BasicHttpParams();
-            HttpConnectionParams.setConnectionTimeout(httpParams, 8000);
-            HttpConnectionParams.setSoTimeout(httpParams, 8000);                    
-            HttpProtocolParams.setContentCharset(httpParams, "utf-8");            
+            HttpParams httpParams = getDefaultHttpParams();            
             
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
