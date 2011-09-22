@@ -4,7 +4,7 @@
       
     <CheckBoxPreference
             android:key="enabled" 
-            android:title="Enable KalSMS" 
+            android:title="Enable EnvayaSMS" 
             android:defaultValue='false'
             android:summaryOn="All new SMS will be forwarded between phone and server"
             android:summaryOff="New SMS will not be forwarded between phone and server"
@@ -57,20 +57,20 @@
     <CheckBoxPreference
             android:key="test_mode"
             android:title="Test mode"
-            android:summaryOff="Test mode is off (KalSMS forwards all SMS)"
-            android:summaryOn="Test mode is on (KalSMS only forwards SMS to/from specific phones)"
+            android:summaryOff="Test mode is off (EnvayaSMS forwards all SMS)"
+            android:summaryOn="Test mode is on (EnvayaSMS only forwards SMS to/from specific phones)"
     ></CheckBoxPreference>
     
     <PreferenceScreen 
         android:key="test_numbers" 
         android:title="Sender phones"
         android:dependency="test_mode"
-        android:summary="Configure the phone numbers that KalSMS will handle"
+        android:summary="Configure the phone numbers that EnvayaSMS will handle"
     >
        <intent 
             android:action="android.intent.action.MAIN"
-            android:targetPackage="org.envaya.kalsms"
-            android:targetClass="org.envaya.kalsms.ui.TestPhoneNumbers" />
+            android:targetPackage="org.envaya.sms"
+            android:targetClass="org.envaya.sms.ui.TestPhoneNumbers" />
     </PreferenceScreen>
 
 </PreferenceScreen>

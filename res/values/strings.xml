@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">KalSMS</string>
+    <string name="app_name">EnvayaSMS</string>
     <string name="settings">Settings</string>
     <string name="test">Test Connection</string>
     <string name="check_now">Check Messages</string>
@@ -8,8 +8,8 @@
     <string name="retry_now">Retry</string>
     <string name="forward_inbox">Fwd Inbox...</string>
     <string name='service_started'>New SMS will be forwarded to server</string>
-    <string name='test_senders'>When running KalSMS in Test Mode, 
-KalSMS will only forward SMS messages from the phone numbers 
+    <string name='test_senders'>When running EnvayaSMS in Test Mode, 
+EnvayaSMS will only forward SMS messages from the phone numbers 
 listed below. (Incoming SMS messages from other phone numbers will be saved 
 in the normal Messaging inbox, and outgoing messages will be ignored.)</string>
 </resources>

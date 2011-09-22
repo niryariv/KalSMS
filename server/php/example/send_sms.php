@@ -3,7 +3,8 @@
 /*
  * Command line script to simulate sending an outgoing SMS from the server.
  *
- * The message will be queued on the server until the next time KalSMS checks for outgoing messages.
+ * The message will be queued on the server until the next time 
+ * EnvayaSMS checks for outgoing messages.
  */
 
 require_once __DIR__."/config.php";
