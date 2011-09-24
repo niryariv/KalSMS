@@ -1,8 +1,5 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.envaya.sms.receiver;
+
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -11,7 +8,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import org.envaya.sms.App;
 
-public class MessageStatusNotifier extends BroadcastReceiver {
+public class MessageDeliveryNotifier extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -21,17 +18,9 @@ public class MessageStatusNotifier extends BroadcastReceiver {
         Bundle extras = intent.getExtras();
         int index = extras.getInt(App.STATUS_EXTRA_INDEX);
         int numParts = extras.getInt(App.STATUS_EXTRA_NUM_PARTS);
-
-        int resultCode = getResultCode();
         
-        // uncomment to test retry on outgoing message failure
-        /*              
-        if (Math.random() > 0.4)
-        {
-            resultCode = SmsManager.RESULT_ERROR_NO_SERVICE;
-        }        
-        */
+        app.log("Message " + uri + " part "+index + "/" + numParts + " delivered");
         
-        app.notifyOutgoingMessageStatus(uri, resultCode, index, numParts);        
+        // todo... could notify the server of message delivery
     }
 }

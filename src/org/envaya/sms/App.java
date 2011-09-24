@@ -72,6 +72,10 @@ public final class App extends Application {
     // intent for MessageStatusNotifier to receive status updates for outgoing SMS
     // (even if sent by an expansion pack)
     public static final String MESSAGE_STATUS_INTENT = "org.envaya.sms.MESSAGE_STATUS";
+    public static final String MESSAGE_DELIVERY_INTENT = "org.envaya.sms.MESSAGE_DELIVERY";
+    
+    public static final String STATUS_EXTRA_INDEX = "status";
+    public static final String STATUS_EXTRA_NUM_PARTS = "num_parts";            
     
     public static final int MAX_DISPLAYED_LOG = 4000;
     public static final int LOG_TIMESTAMP_INTERVAL = 60000;
@@ -180,7 +184,7 @@ public final class App extends Application {
     }
     
     
-    public synchronized String chooseOutgoingSmsPackage()
+    public synchronized String chooseOutgoingSmsPackage(int numParts)
     {
         outgoingMessageCount++;
         
@@ -211,9 +215,13 @@ public final class App extends Application {
                 sent.remove(0);
             }
 
-            if ( (sent.size() + 1) <= OUTGOING_SMS_MAX_COUNT)
+            if ( (sent.size() + numParts) <= OUTGOING_SMS_MAX_COUNT)
             {
-                sent.add(ct);
+                // each part counts towards message limit
+                for (int j = 0; j < numParts; j++)
+                {
+                    sent.add(ct);
+                }
                 return packageName;
             }            
         }
@@ -422,10 +430,16 @@ public final class App extends Application {
         }
     }    
 
-    public synchronized void notifyOutgoingMessageStatus(Uri uri, int resultCode) {
+    public synchronized void notifyOutgoingMessageStatus(Uri uri, int resultCode, int partIndex, int numParts) {
         OutgoingMessage sms = outgoingMessages.get(uri);
 
         if (sms == null) {
+            return;
+        }
+        
+        if (partIndex != 0)
+        {
+            // TODO: process message status for parts other than the first one
             return;
         }
 
@@ -466,14 +480,30 @@ public final class App extends Application {
 
     public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
         
-        if (isTestMode() && !isTestPhoneNumber(sms.getTo()))
+        String to = sms.getTo();
+        if (to == null || to.length() == 0)
+        {
+            log("Ignoring outgoing SMS; destination is empty");
+            return;
+        }        
+        
+        if (isTestMode() && !isTestPhoneNumber(to))
         {
             // this is mostly to prevent accidentally sending real messages to
             // random people while testing...
             
-            log("Ignoring outgoing SMS to " + sms.getTo());
+            log("Ignoring outgoing SMS to " + to);
             return;
         }
+        
+        String messageBody = sms.getMessageBody();
+        
+        if (messageBody == null || messageBody.length() == 0)
+        {
+            log("Ignoring outgoing SMS; message body is empty");
+            return;
+        }
+               
         
         Uri uri = sms.getUri();
         if (outgoingMessages.containsKey(uri)) {

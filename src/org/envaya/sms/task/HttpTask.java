@@ -217,13 +217,19 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             try
             {
                 handleResponse(response);            
-                response.getEntity().consumeContent();
             }
             catch (Throwable ex)
             {
                 post.abort();
                 app.logError("Error processing server response", ex);
                 handleFailure();
+            }
+            try
+            {
+                response.getEntity().consumeContent();
+            }
+            catch (IOException ex)
+            {
             }
         }
         else

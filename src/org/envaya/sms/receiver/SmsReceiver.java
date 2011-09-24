@@ -6,7 +6,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.envaya.sms.App;
 import org.envaya.sms.IncomingMessage;
 import org.envaya.sms.IncomingSms;
@@ -17,7 +19,6 @@ public class SmsReceiver extends BroadcastReceiver {
     private App app;   
 
     @Override
-    // source: http://www.devx.com/wireless/Article/39495/1954
     public void onReceive(Context context, Intent intent) {        
         app = (App) context.getApplicationContext();
         
@@ -27,42 +28,46 @@ public class SmsReceiver extends BroadcastReceiver {
         }
         
         try {
-            boolean hasUnhandledMessage = false;
+            IncomingMessage sms = getMessageFromIntent(intent);
+            
+            if (sms.isForwardable())
+            {                    
+                app.forwardToServer(sms);
 
-            for (IncomingMessage sms : getMessagesFromIntent(intent)) {                    
-
-                if (sms.isForwardable())
-                {                    
-                    app.forwardToServer(sms);
-                }
-                else
+                if (!app.getKeepInInbox())
                 {
-                    app.log("Ignoring incoming SMS from " + sms.getFrom());
-                    hasUnhandledMessage = true;
-                }
+                    this.abortBroadcast();
+                }                    
             }
-
-            if (!hasUnhandledMessage && !app.getKeepInInbox())
+            else
             {
-                this.abortBroadcast();
+                app.log("Ignoring incoming SMS from " + sms.getFrom());
             }
         } catch (Throwable ex) {
             app.logError("Unexpected error in SmsReceiver", ex, true);
         }
     }
 
-    // from http://github.com/dimagi/rapidandroid 
-    // source: http://www.devx.com/wireless/Article/39495/1954
-    private List<IncomingMessage> getMessagesFromIntent(Intent intent) 
+    private IncomingMessage getMessageFromIntent(Intent intent) 
     {
         Bundle bundle = intent.getExtras();        
-        List<IncomingMessage> messages = new ArrayList<IncomingMessage>();
 
+        // SMSDispatcher may send us multiple pdus from a multipart sms,
+        // in order (all in one broadcast though)
+        
+        // The comments in the gtalksms app indicate that we could get PDUs 
+        // from multiple different senders at once, but I don't see how this
+        // could happen by looking at the SMSDispatcher source code... 
+        // so I'm going to assume it doesn't happen and throw an exception if
+        // it does.        
+        
+        List<SmsMessage> smsParts = new ArrayList<SmsMessage>();
+        
         for (Object pdu : (Object[]) bundle.get("pdus"))
         {
-            SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu);
-            messages.add(new IncomingSms(app, sms));
+            smsParts.add(SmsMessage.createFromPdu((byte[]) pdu));
         }
-        return messages;
+                
+        return new IncomingSms(app, smsParts);
     }
 }
