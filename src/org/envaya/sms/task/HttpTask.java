@@ -20,17 +20,13 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.HttpParams;
-import org.apache.http.params.HttpProtocolParams;
 import org.envaya.sms.App;
 import org.envaya.sms.Base64Coder;
 import org.envaya.sms.OutgoingMessage;
@@ -202,8 +198,15 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             
             sms.setServerId(serverId.equals("") ? null : serverId);
 
-            Node firstChild = smsElement.getFirstChild();                
-            sms.setMessageBody(firstChild != null ? firstChild.getNodeValue(): "");            
+            StringBuilder messageBody = new StringBuilder();
+            NodeList childNodes = smsElement.getChildNodes();
+            int numChildren = childNodes.getLength();
+            for (int j = 0; j < numChildren; j++)
+            {
+                messageBody.append(childNodes.item(j).getNodeValue());
+            }
+            
+            sms.setMessageBody(messageBody.toString());            
             
             messages.add(sms);
         }

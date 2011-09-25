@@ -6,13 +6,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.envaya.sms.App;
 import org.envaya.sms.IncomingMessage;
 import org.envaya.sms.IncomingSms;
-
 
 public class SmsReceiver extends BroadcastReceiver {
 

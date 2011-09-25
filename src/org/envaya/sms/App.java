@@ -78,7 +78,9 @@ public final class App extends Application {
     public static final String STATUS_EXTRA_NUM_PARTS = "num_parts";            
     
     public static final int MAX_DISPLAYED_LOG = 4000;
-    public static final int LOG_TIMESTAMP_INTERVAL = 60000;
+    public static final int LOG_TIMESTAMP_INTERVAL = 60000; // ms
+    
+    public static final int HTTP_CONNECTION_TIMEOUT = 10000; // ms
     
     // Each QueuedMessage is identified within our internal Map by its Uri.
     // Currently QueuedMessage instances are only available within EnvayaSMS,
@@ -690,8 +692,8 @@ public final class App extends Application {
     public HttpParams getDefaultHttpParams()
     {
         HttpParams httpParams = new BasicHttpParams();
-        HttpConnectionParams.setConnectionTimeout(httpParams, 8000);
-        HttpConnectionParams.setSoTimeout(httpParams, 8000);                    
+        HttpConnectionParams.setConnectionTimeout(httpParams, HTTP_CONNECTION_TIMEOUT);
+        HttpConnectionParams.setSoTimeout(httpParams, HTTP_CONNECTION_TIMEOUT);                    
         HttpProtocolParams.setContentCharset(httpParams, "UTF-8");            
         return httpParams;
     }

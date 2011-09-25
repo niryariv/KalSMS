@@ -23,7 +23,7 @@ public class Help extends Activity {
             + "EnvayaSMS is a SMS gateway.<br /><br /> "
             + "It forwards all incoming SMS messages received by this phone to a server on the internet, "
             + "and also sends outgoing SMS messages from that server to other phones.<br /><br />"
-            + "See http://sms.envaya.org/ for more information.<br /><br />"
+            + "See sms.envaya.org for more information.<br /><br />"
             + "The Settings screen allows you configure EnvayaSMS to work with a particular server, "
             + "by entering the server URL, your phone number, "
             + "and the password assigned to your phone on the server.<br /><br />"
