@@ -37,7 +37,7 @@ public class Main extends Activity {
     private class TestTask extends HttpTask
     {
         public TestTask() {
-            super(Main.this.app, new BasicNameValuePair("action", App.ACTION_OUTGOING));   
+            super(Main.this.app, new BasicNameValuePair("action", App.ACTION_TEST));   
         }
         
         @Override

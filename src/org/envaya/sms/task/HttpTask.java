@@ -125,7 +125,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             }
             else
             {
-                post.setEntity(new UrlEncodedFormEntity(params));            
+                post.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));            
             }
                         
             HttpClient client = app.getHttpClient();

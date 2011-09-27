@@ -65,6 +65,7 @@ public class IncomingSms extends IncomingMessage {
     }        
 
     public void tryForwardToServer() {        
+        
         new ForwarderTask(this,
             new BasicNameValuePair("from", getFrom()),
             new BasicNameValuePair("message_type", App.MESSAGE_TYPE_SMS),

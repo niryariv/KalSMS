@@ -90,6 +90,12 @@ public class OutgoingMessage extends QueuedMessage {
         SmsManager smgr = SmsManager.getDefault();
         ArrayList<String> bodyParts = smgr.divideMessage(getMessageBody());
         
+        int numParts = bodyParts.size();
+        if (numParts > 1)
+        {
+            app.log("(Multipart message with "+numParts+" parts)");
+        }
+        
         String packageName = app.chooseOutgoingSmsPackage(bodyParts.size());
         
         if (packageName == null)
