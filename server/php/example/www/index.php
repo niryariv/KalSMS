@@ -10,7 +10,7 @@ ini_set('display_errors','0');
 
 $request = EnvayaSMS::get_request();
 
-$phone_number = $request->get_phone_number();
+$phone_number = $request->phone_number;
 
 $password = @$PASSWORDS[$phone_number];
 
@@ -79,7 +79,9 @@ switch ($action->type)
             echo "invalid id";            
         }   
         return;
-        
+    case EnvayaSMS::ACTION_TEST:
+        echo "OK";
+        return;        
     default:
         header("HTTP/1.1 404 Not Found");
         echo "Invalid action";
