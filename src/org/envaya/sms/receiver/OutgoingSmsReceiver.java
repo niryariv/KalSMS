@@ -16,11 +16,17 @@ public class OutgoingSmsReceiver extends BroadcastReceiver {
         Bundle extras = intent.getExtras();
         String to = extras.getString(App.OUTGOING_SMS_EXTRA_TO);
         ArrayList<String> bodyParts = extras.getStringArrayList(App.OUTGOING_SMS_EXTRA_BODY);
+        boolean deliveryReport = extras.getBoolean(App.OUTGOING_SMS_EXTRA_DELIVERY_REPORT, false);
         
         SmsManager smgr = SmsManager.getDefault();
         
         ArrayList<PendingIntent> sentIntents = new ArrayList<PendingIntent>();
-        ArrayList<PendingIntent> deliveryIntents = new ArrayList<PendingIntent>();
+        ArrayList<PendingIntent> deliveryIntents = null;
+        
+        if (deliveryReport)
+        {
+            deliveryIntents = new ArrayList<PendingIntent>();
+        }
         
         int numParts = bodyParts.size();
         
@@ -36,15 +42,18 @@ public class OutgoingSmsReceiver extends BroadcastReceiver {
                 statusIntent,
                 PendingIntent.FLAG_ONE_SHOT));
 
-            Intent deliveryIntent = new Intent(App.MESSAGE_DELIVERY_INTENT, intent.getData());
-            deliveryIntent.putExtra(App.STATUS_EXTRA_INDEX, i);
-            deliveryIntent.putExtra(App.STATUS_EXTRA_NUM_PARTS, numParts);            
-           
-            deliveryIntents.add(PendingIntent.getBroadcast(
-                context,
-                0,
-                deliveryIntent,
-                PendingIntent.FLAG_ONE_SHOT));                   
+            if (deliveryReport)
+            {
+                Intent deliveryIntent = new Intent(App.MESSAGE_DELIVERY_INTENT, intent.getData());
+                deliveryIntent.putExtra(App.STATUS_EXTRA_INDEX, i);
+                deliveryIntent.putExtra(App.STATUS_EXTRA_NUM_PARTS, numParts);            
+
+                deliveryIntents.add(PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    deliveryIntent,
+                    PendingIntent.FLAG_ONE_SHOT));                   
+            }
         }        
 
         smgr.sendMultipartTextMessage(to, null, bodyParts, sentIntents, deliveryIntents);

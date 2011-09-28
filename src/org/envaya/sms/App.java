@@ -68,12 +68,13 @@ public final class App extends Application {
     public static final String OUTGOING_SMS_INTENT_SUFFIX = ".OUTGOING_SMS";    
     public static final String OUTGOING_SMS_EXTRA_TO = "to";
     public static final String OUTGOING_SMS_EXTRA_BODY = "body";    
+    public static final String OUTGOING_SMS_EXTRA_DELIVERY_REPORT = "delivery";
     public static final int OUTGOING_SMS_UNHANDLED = Activity.RESULT_FIRST_USER;
     
     // intent for MessageStatusNotifier to receive status updates for outgoing SMS
     // (even if sent by an expansion pack)
     public static final String MESSAGE_STATUS_INTENT = "org.envaya.sms.MESSAGE_STATUS";
-    public static final String MESSAGE_DELIVERY_INTENT = "org.envaya.sms.MESSAGE_DELIVERY";
+    public static final String MESSAGE_DELIVERY_INTENT = "org.envaya.sms.MESSAGE_DELIVERY";    
     
     public static final String STATUS_EXTRA_INDEX = "status";
     public static final String STATUS_EXTRA_NUM_PARTS = "num_parts";            

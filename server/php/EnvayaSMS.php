@@ -22,7 +22,7 @@ class EnvayaSMS
     
     static function escape($val)
     {
-        return htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars($val, ENT_COMPAT | ENT_XML1, 'UTF-8');
     }    
     
     private static $request;
@@ -123,8 +123,8 @@ class EnvayaSMS_Request
         echo "<messages>";
         foreach ($messages as $message)
         {   
-            $id = isset($message->id) ? " id='".EnvayaSMS::escape($message->id)."'" : "";
-            $to = isset($message->to) ? " to='".EnvayaSMS::escape($message->to)."'" : "";        
+            $id = isset($message->id) ? " id=\"".EnvayaSMS::escape($message->id)."\"" : "";
+            $to = isset($message->to) ? " to=\"".EnvayaSMS::escape($message->to)."\"" : "";        
             echo "<sms$id$to>".EnvayaSMS::escape($message->message)."</sms>";
         }
         echo "</messages>";        
