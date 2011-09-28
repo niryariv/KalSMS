@@ -77,8 +77,15 @@ public class IncomingMms extends IncomingMessage {
     }
     
     public void tryForwardToServer()
-    {
-        app.log("Forwarding MMS to server...");
+    {        
+        if (numRetries > 0)
+        {
+            app.log("Retrying forwarding MMS from " + from);
+        }
+        else
+        {
+            app.log("Forwarding MMS to server...");
+        }
         
         List<FormBodyPart> formParts = new ArrayList<FormBodyPart>();        
         

@@ -20,10 +20,12 @@ import android.text.SpannableStringBuilder;
 import android.util.Log;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
@@ -36,6 +38,7 @@ import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
+import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
 import org.envaya.sms.receiver.OutgoingMessagePoller;
 import org.envaya.sms.task.HttpTask;
 import org.envaya.sms.task.PollerTask;
@@ -100,6 +103,27 @@ public final class App extends Application {
     private Map<Uri, IncomingMessage> incomingMessages = new HashMap<Uri, IncomingMessage>();
     private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
     
+    private int numPendingOutgoingMessages = 0;
+    private PriorityQueue<OutgoingMessage> outgoingQueue = new PriorityQueue<OutgoingMessage>(10, 
+        new Comparator<OutgoingMessage>() { 
+            public int compare(OutgoingMessage t1, OutgoingMessage t2)
+            {
+                int pri2 = t2.getPriority();
+                int pri1 = t1.getPriority();
+                
+                if (pri1 != pri2)
+                {
+                    return pri2 - pri1;
+                }
+                
+                int order2 = t2.getLocalId();
+                int order1 = t1.getLocalId();
+                
+                return order1 - order2;
+            }
+        }            
+    );
+    
     private SharedPreferences settings;
     private MmsObserver mmsObserver;
     private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
@@ -113,6 +137,8 @@ public final class App extends Application {
     
     // count to provide round-robin selection of expansion packs
     private int outgoingMessageCount = -1;
+    
+    private long nextValidOutgoingTime;
     
     // map of package name => sorted list of timestamps of outgoing messages
     private HashMap<String, ArrayList<Long>> outgoingTimestamps
@@ -187,8 +213,7 @@ public final class App extends Application {
         return packageInfo;
     }
     
-    
-    public synchronized String chooseOutgoingSmsPackage(int numParts)
+    private synchronized String chooseOutgoingSmsPackage(int numParts)
     {
         outgoingMessageCount++;
         
@@ -205,7 +230,7 @@ public final class App extends Application {
             
             if (!outgoingTimestamps.containsKey(packageName)) {
                 outgoingTimestamps.put(packageName, new ArrayList<Long>());
-            }                
+            }
             
             ArrayList<Long> sent = outgoingTimestamps.get(packageName);        
             
@@ -227,7 +252,7 @@ public final class App extends Application {
                     sent.add(ct);
                 }
                 return packageName;
-            }            
+            }
         }
         
         log("Can't send outgoing SMS: maximum limit of "
@@ -237,6 +262,48 @@ public final class App extends Application {
         return null;
     }    
 
+    /*
+     * Returns the next time (in currentTimeMillis) that we can send an 
+     * outgoing SMS with numParts parts. Only valid immediately after 
+     * chooseOutgoingSmsPackage returns null.
+     */
+    private synchronized long getNextValidOutgoingTime(int numParts)
+    {       
+        long minTime = System.currentTimeMillis() + OUTGOING_SMS_CHECK_PERIOD;
+        
+        for (String packageName : outgoingMessagePackages)
+        {
+            ArrayList<Long> timestamps = outgoingTimestamps.get(packageName);            
+            if (timestamps == null) // should never happen
+            {
+                continue;
+            }
+            
+            int numTimestamps = timestamps.size();
+            
+            // get 100th-to-last timestamp for 1 part msg, 
+            // 99th-to-last timestamp for 2 part msg, etc.
+            
+            int timestampIndex = numTimestamps - 1 - OUTGOING_SMS_MAX_COUNT + numParts;            
+                        
+            if (timestampIndex < 0 || timestampIndex >= numTimestamps) 
+            {
+                // should never happen 
+                // (unless someone tries to send a 101-part SMS message)
+                continue;
+            }
+            
+            long minTimeForPackage = timestamps.get(timestampIndex) + OUTGOING_SMS_CHECK_PERIOD;
+            if (minTimeForPackage < minTime)
+            {
+                minTime = minTimeForPackage;
+            }            
+        }
+        
+        // return time immediately after limiting timestamp
+        return minTime + 1;
+    }
+    
     private synchronized void setExpansionPacks(List<String> packages)
     {
         int prevLimit = getOutgoingMessageLimit();
@@ -366,7 +433,7 @@ public final class App extends Application {
 
     private void notifyStatus(OutgoingMessage sms, String status, String errorMessage) {
         String serverId = sms.getServerId();
-
+               
         String logMessage;
         if (status.equals(App.STATUS_SENT)) {
             logMessage = "sent successfully";
@@ -392,27 +459,45 @@ public final class App extends Application {
     }
 
     public synchronized void retryStuckMessages() {
+        
+        this.nextValidOutgoingTime = 0;
+        
         retryStuckOutgoingMessages();
         retryStuckIncomingMessages();
     }
 
-    public synchronized int getStuckMessageCount() {
+    public synchronized int getStuckMessageCount() {        
         return outgoingMessages.size() + incomingMessages.size();
     }
 
     public synchronized void retryStuckOutgoingMessages() {
         for (OutgoingMessage sms : outgoingMessages.values()) {
-            sms.retryNow();
+            
+            OutgoingMessage.ProcessingState state = sms.getProcessingState();
+            
+            if (state != OutgoingMessage.ProcessingState.Queued
+                && state != OutgoingMessage.ProcessingState.Sending)
+            {
+                enqueueOutgoingMessage(sms);
+            }
         }
+        maybeDequeueOutgoingMessage();
     }
 
     public synchronized void retryStuckIncomingMessages() {
-        for (IncomingMessage sms : incomingMessages.values()) {
-            sms.retryNow();
+        for (IncomingMessage sms : incomingMessages.values()) {            
+            IncomingMessage.ProcessingState state = sms.getProcessingState();            
+            if (state != IncomingMessage.ProcessingState.Forwarding)
+            {            
+                enqueueIncomingMessage(sms);
+            }
         }
     }
     
     public synchronized void setIncomingMessageStatus(IncomingMessage message, boolean success) {        
+        
+        message.setProcessingState(IncomingMessage.ProcessingState.None);
+        
         Uri uri = message.getUri();
         if (success)
         {
@@ -428,9 +513,16 @@ public final class App extends Application {
                 }            
             }
         }
-        else if (!message.scheduleRetry())
-        {
-            incomingMessages.remove(uri);
+        else 
+        {                        
+            if (message.scheduleRetry())
+            {
+                message.setProcessingState(IncomingMessage.ProcessingState.Scheduled);
+            }
+            else
+            {
+                incomingMessages.remove(uri);
+            }
         }
     }    
 
@@ -446,7 +538,7 @@ public final class App extends Application {
             // TODO: process message status for parts other than the first one
             return;
         }
-
+                                        
         switch (resultCode) {
             case Activity.RESULT_OK:
                 this.notifyStatus(sms, App.STATUS_SENT, "");
@@ -467,12 +559,17 @@ public final class App extends Application {
                 this.notifyStatus(sms, App.STATUS_FAILED, "unknown error");
                 break;
         }
+        
+        sms.setProcessingState(OutgoingMessage.ProcessingState.None);
 
         switch (resultCode) {
             case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
             case SmsManager.RESULT_ERROR_RADIO_OFF:
             case SmsManager.RESULT_ERROR_NO_SERVICE:
-                if (!sms.scheduleRetry()) {
+                if (sms.scheduleRetry()) {
+                    sms.setProcessingState(OutgoingMessage.ProcessingState.Scheduled);
+                }
+                else {                    
                     outgoingMessages.remove(uri);
                 }
                 break;
@@ -480,6 +577,9 @@ public final class App extends Application {
                 outgoingMessages.remove(uri);
                 break;
         }
+                
+        numPendingOutgoingMessages--;
+        maybeDequeueOutgoingMessage();
     }
 
     public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
@@ -487,16 +587,15 @@ public final class App extends Application {
         String to = sms.getTo();
         if (to == null || to.length() == 0)
         {
-            log("Ignoring outgoing SMS; destination is empty");
+            notifyStatus(sms, App.STATUS_FAILED, "Destination address is empty");
             return;
         }        
         
         if (isTestMode() && !isTestPhoneNumber(to))
         {
             // this is mostly to prevent accidentally sending real messages to
-            // random people while testing...
-            
-            log("Ignoring outgoing SMS to " + to);
+            // random people while testing...        
+            notifyStatus(sms, App.STATUS_FAILED, "Destination number is not in list of test senders");
             return;
         }
         
@@ -504,21 +603,91 @@ public final class App extends Application {
         
         if (messageBody == null || messageBody.length() == 0)
         {
-            log("Ignoring outgoing SMS; message body is empty");
+            notifyStatus(sms, App.STATUS_FAILED, "Message body is empty");
             return;
-        }
-               
+        }               
         
         Uri uri = sms.getUri();
         if (outgoingMessages.containsKey(uri)) {
-            log("Duplicate outgoing " + sms.getLogName() + ", skipping");
+            debug("Duplicate outgoing " + sms.getLogName() + ", skipping");
             return;
         }
 
-        outgoingMessages.put(uri, sms);
+        outgoingMessages.put(uri, sms);        
+        enqueueOutgoingMessage(sms);
+    }
+    
+    public synchronized void maybeDequeueOutgoingMessage()
+    {
+        long now = System.currentTimeMillis();        
+        if (nextValidOutgoingTime <= now && numPendingOutgoingMessages < 2)
+        {
+            OutgoingMessage sms = outgoingQueue.peek();
+            
+            if (sms == null)
+            {
+                return;
+            }
+            
+            SmsManager smgr = SmsManager.getDefault();
+            ArrayList<String> bodyParts = smgr.divideMessage(sms.getMessageBody());
+            
+            int numParts = bodyParts.size();
+            
+            if (numParts > App.OUTGOING_SMS_MAX_COUNT)
+            {
+                outgoingQueue.poll();
+                outgoingMessages.remove(sms.getUri());
+                notifyStatus(sms, App.STATUS_FAILED, "Message has too many parts ("+(numParts)+")");
+                return;
+            }
+            
+            String packageName = chooseOutgoingSmsPackage(numParts);            
+            
+            if (packageName == null)
+            {            
+                nextValidOutgoingTime = getNextValidOutgoingTime(numParts);                
+                                
+                if (nextValidOutgoingTime <= now) // should never happen
+                {
+                    nextValidOutgoingTime = now + 2000;
+                }
+                
+                long diff = nextValidOutgoingTime - now;
+                
+                log("Waiting for " + (diff/1000) + " seconds");
+                
+                AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 
-        log("Sending " + sms.getLogName() + " to " + sms.getTo());
-        sms.trySend();
+                Intent intent = new Intent(this, DequeueOutgoingMessageReceiver.class);
+                
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(this,
+                    0,
+                    intent,
+                    0);
+
+                alarm.set(
+                    AlarmManager.RTC_WAKEUP,
+                    nextValidOutgoingTime,
+                    pendingIntent);
+                
+                return;
+            }
+            
+            outgoingQueue.poll();            
+            numPendingOutgoingMessages++;
+            
+            sms.setProcessingState(OutgoingMessage.ProcessingState.Sending);
+            
+            sms.trySend(bodyParts, packageName);
+        }  
+    }
+    
+    public synchronized void enqueueOutgoingMessage(OutgoingMessage sms) 
+    {
+        outgoingQueue.add(sms);
+        sms.setProcessingState(OutgoingMessage.ProcessingState.Queued);
+        maybeDequeueOutgoingMessage();
     }
 
     public synchronized void forwardToServer(IncomingMessage message) {
@@ -532,21 +701,27 @@ public final class App extends Application {
         incomingMessages.put(uri, message);
 
         log("Received "+message.getDisplayType()+" from " + message.getFrom());
-
+        
+        enqueueIncomingMessage(message);
+    }
+    
+    public synchronized void enqueueIncomingMessage(IncomingMessage message)
+    {
+        message.setProcessingState(IncomingMessage.ProcessingState.Forwarding);
         message.tryForwardToServer();
     }
 
     public synchronized void retryIncomingMessage(Uri uri) {
         IncomingMessage message = incomingMessages.get(uri);
         if (message != null) {
-            message.retryNow();
+            enqueueIncomingMessage(message);
         }
     }
 
     public synchronized void retryOutgoingMessage(Uri uri) {
         OutgoingMessage sms = outgoingMessages.get(uri);
         if (sms != null) {
-            sms.retryNow();
+            enqueueOutgoingMessage(sms);
         }
     }
 

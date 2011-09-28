@@ -66,6 +66,11 @@ public class IncomingSms extends IncomingMessage {
 
     public void tryForwardToServer() {        
         
+        if (numRetries > 0)
+        {
+            app.log("Retrying forwarding SMS from " + from);
+        }
+        
         new ForwarderTask(this,
             new BasicNameValuePair("from", getFrom()),
             new BasicNameValuePair("message_type", App.MESSAGE_TYPE_SMS),

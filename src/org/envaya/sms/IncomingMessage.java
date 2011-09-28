@@ -7,12 +7,32 @@ import org.envaya.sms.receiver.IncomingMessageRetry;
 public abstract class IncomingMessage extends QueuedMessage {
 
     protected String from;
+        
+    private ProcessingState state = ProcessingState.None;
+        
+    public enum ProcessingState
+    {
+        None,           // not doing anything with this sms now... just sitting around
+        Forwarding,     // currently sending to server
+        Scheduled       // waiting for a while before retrying after failure forwarding
+    }    
     
     public IncomingMessage(App app, String from)
     {
         super(app);
         this.from = from;
     }
+    
+    public ProcessingState getProcessingState()
+    {
+        return state;
+    }
+    
+    public void setProcessingState(ProcessingState status)
+    {
+        this.state = status;
+    }    
+   
     
     public abstract String getDisplayType();
        
@@ -53,12 +73,7 @@ public abstract class IncomingMessage extends QueuedMessage {
     {
         return from;
     }
-    
-    public void retryNow() {
-        app.log("Retrying forwarding message from " + from);
-        tryForwardToServer();
-    }    
- 
+     
     protected Intent getRetryIntent() {
         Intent intent = new Intent(app, IncomingMessageRetry.class);
         intent.setData(this.getUri());

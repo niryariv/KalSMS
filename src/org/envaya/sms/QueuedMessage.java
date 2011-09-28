@@ -66,7 +66,5 @@ public abstract class QueuedMessage
     
     public abstract Uri getUri();
 
-    public abstract void retryNow();
-
     protected abstract Intent getRetryIntent();
 }

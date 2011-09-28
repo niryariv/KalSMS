@@ -197,6 +197,20 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             String serverId = smsElement.getAttribute("id");
             
             sms.setServerId(serverId.equals("") ? null : serverId);
+            
+            String priorityStr = smsElement.getAttribute("priority");
+            
+            if (!priorityStr.equals(""))
+            {
+                try
+                {
+                    sms.setPriority(Integer.parseInt(priorityStr));
+                }
+                catch (NumberFormatException ex)
+                {
+                    app.log("Invalid message priority: " + priorityStr);
+                }
+            }
 
             StringBuilder messageBody = new StringBuilder();
             NodeList childNodes = smsElement.getChildNodes();
