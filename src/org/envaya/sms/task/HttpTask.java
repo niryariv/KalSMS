@@ -8,6 +8,8 @@ import android.os.AsyncTask;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,7 +34,6 @@ import org.envaya.sms.Base64Coder;
 import org.envaya.sms.OutgoingMessage;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
@@ -159,6 +160,11 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         {
             post.abort();
             app.logError("Error while contacting server", ex);
+            
+            if (ex instanceof UnknownHostException || ex instanceof SocketTimeoutException)
+            {                
+                app.asyncCheckConnectivity();
+            }
             return null;
         }
         catch (Throwable ex) 

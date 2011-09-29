@@ -12,6 +12,11 @@ public class IncomingMessageRetry extends BroadcastReceiver
     public void onReceive(Context context, Intent intent) 
     {        
         App app = (App) context.getApplicationContext();
+        if (!app.isEnabled())
+        {
+            return;
+        }
+        
         app.retryIncomingMessage(intent.getData());        
     }        
 }    

@@ -8,18 +8,20 @@ import org.envaya.sms.OutgoingMessage;
 
 public class ForwarderTask extends HttpTask {
 
-    private IncomingMessage originalSms;
+    private IncomingMessage message;
 
-    public ForwarderTask(IncomingMessage originalSms, BasicNameValuePair... paramsArr) {
-        super(originalSms.app, paramsArr);
-        this.originalSms = originalSms;
-        
+    public ForwarderTask(IncomingMessage message, BasicNameValuePair... paramsArr) {
+        super(message.app, paramsArr);
+        this.message = message;
+                
         params.add(new BasicNameValuePair("action", App.ACTION_INCOMING));
+        params.add(new BasicNameValuePair("from", message.getFrom()));
+        params.add(new BasicNameValuePair("timestamp", "" + message.getTimestamp()));
     }
     
     @Override
     protected String getDefaultToAddress() {
-        return originalSms.getFrom();
+        return message.getFrom();
     }
 
     @Override
@@ -29,11 +31,11 @@ public class ForwarderTask extends HttpTask {
             app.sendOutgoingMessage(reply);
         }
 
-        app.setIncomingMessageStatus(originalSms, true);
+        app.setIncomingMessageStatus(message, true);
     }
 
     @Override
     protected void handleFailure() {
-        app.setIncomingMessageStatus(originalSms, false);
+        app.setIncomingMessageStatus(message, false);
     }
 }

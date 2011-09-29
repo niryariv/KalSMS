@@ -1,13 +1,13 @@
 package org.envaya.sms;
 
 import android.content.Intent;
-import android.net.Uri;
 import org.envaya.sms.receiver.IncomingMessageRetry;
 
 public abstract class IncomingMessage extends QueuedMessage {
 
     protected String from;
-        
+    protected long timestamp; // unix timestamp in milliseconds
+    
     private ProcessingState state = ProcessingState.None;
         
     public enum ProcessingState
@@ -17,10 +17,16 @@ public abstract class IncomingMessage extends QueuedMessage {
         Scheduled       // waiting for a while before retrying after failure forwarding
     }    
     
-    public IncomingMessage(App app, String from)
+    public IncomingMessage(App app, String from, long timestamp)
     {
         super(app);
         this.from = from;
+        this.timestamp = timestamp;
+    }
+    
+    public long getTimestamp()
+    {
+        return timestamp;
     }
     
     public ProcessingState getProcessingState()

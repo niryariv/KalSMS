@@ -10,7 +10,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
@@ -18,6 +21,8 @@ import android.telephony.SmsManager;
 import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -40,6 +45,7 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
 import org.envaya.sms.receiver.OutgoingMessagePoller;
+import org.envaya.sms.receiver.ReenableWifiReceiver;
 import org.envaya.sms.task.HttpTask;
 import org.envaya.sms.task.PollerTask;
 import org.json.JSONArray;
@@ -94,11 +100,18 @@ public final class App extends Application {
     public static final Uri INCOMING_URI = Uri.withAppendedPath(CONTENT_URI, "incoming");
     public static final Uri OUTGOING_URI = Uri.withAppendedPath(CONTENT_URI, "outgoing");
     
+    // how long we disable wifi when there is no connection to the server
+    // (should be longer than CONNECTIVITY_FAILOVER_INTERVAL)
+    public static final int DISABLE_WIFI_INTERVAL = 3600000; 
+    
+    // how often we can automatically failover between wifi/mobile connection
+    public static final int CONNECTIVITY_FAILOVER_INTERVAL = 1800000;
+    
     // max per-app outgoing SMS rate used by com.android.internal.telephony.SMSDispatcher
     // with a slightly longer check period to account for variance in the time difference
     // between when we prepare messages and when SMSDispatcher receives them
-    public static int OUTGOING_SMS_CHECK_PERIOD = 3605000; // one hour plus 5 sec (in ms)    
-    public static int OUTGOING_SMS_MAX_COUNT = 100;
+    public static final int OUTGOING_SMS_CHECK_PERIOD = 3605000; // one hour plus 5 sec (in ms)    
+    public static final int OUTGOING_SMS_MAX_COUNT = 100;
     
     private Map<Uri, IncomingMessage> incomingMessages = new HashMap<Uri, IncomingMessage>();
     private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
@@ -417,6 +430,11 @@ public final class App extends Application {
         return settings.getBoolean("enabled", false);
     }
     
+    public boolean isNetworkFailoverEnabled()
+    {
+        return settings.getBoolean("network_failover", false);
+    }
+    
     public boolean isTestMode()
     {
         return settings.getBoolean("test_mode", false);
@@ -713,14 +731,16 @@ public final class App extends Application {
 
     public synchronized void retryIncomingMessage(Uri uri) {
         IncomingMessage message = incomingMessages.get(uri);
-        if (message != null) {
+        if (message != null 
+            && message.getProcessingState() == IncomingMessage.ProcessingState.Scheduled) {
             enqueueIncomingMessage(message);
         }
     }
 
     public synchronized void retryOutgoingMessage(Uri uri) {
         OutgoingMessage sms = outgoingMessages.get(uri);
-        if (sms != null) {
+        if (sms != null 
+            && sms.getProcessingState() == OutgoingMessage.ProcessingState.Scheduled) {
             enqueueOutgoingMessage(sms);
         }
     }
@@ -898,4 +918,189 @@ public final class App extends Application {
         }
         return httpClient;
     }      
+    
+    private class ConnectivityCheckState
+    {
+        //private int networkType;
+        private long lastCheckTime;  // when we checked connectivity on this network
+        
+        public ConnectivityCheckState(int networkType)
+        {
+            //this.networkType = networkType;
+        }
+        
+        public synchronized boolean canCheck()
+        {
+            long time = SystemClock.elapsedRealtime();                
+            return (time - lastCheckTime >= App.CONNECTIVITY_FAILOVER_INTERVAL);
+        }                    
+        
+        public void setChecked()
+        {
+            lastCheckTime = SystemClock.elapsedRealtime();
+        }
+    }
+    
+    private Map<Integer,ConnectivityCheckState> connectivityCheckStates
+        = new HashMap<Integer, ConnectivityCheckState>();
+        
+    private Thread connectivityThread;    
+        
+    /*
+     * Normally we rely on Android to automatically switch between 
+     * mobile data and Wi-Fi, but if the phone is connected to a Wi-Fi router
+     * that doesn't have a connection to the internet, Android won't know 
+     * the difference. So we if we can't actually reach the remote host via
+     * the current connection, we toggle the Wi-Fi radio so that Android
+     * will switch to the other connection. 
+     * 
+     * If the host is unreachable on both connections, we don't want to
+     * keep toggling the radio forever, so there is a timeout before we can 
+     * recheck connectivity on a particular connection.
+     * 
+     * When we disable the Wi-Fi radio, we set a timeout to reenable it after
+     * a while in hopes that connectivity will be restored.
+     */
+    public synchronized void asyncCheckConnectivity()
+    {          
+        ConnectivityManager cm = 
+            (ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();                
+
+        if (activeNetwork == null || !activeNetwork.isConnected())
+        {
+            WifiManager wmgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+            
+            if (!wmgr.isWifiEnabled() && isNetworkFailoverEnabled())
+            {
+                wmgr.setWifiEnabled(true);
+            }
+            return;
+        }
+        
+        final int networkType = activeNetwork.getType();                
+        
+        ConnectivityCheckState state = 
+            connectivityCheckStates.get(networkType);
+        
+        if (state == null)
+        {
+            state = new ConnectivityCheckState(networkType);
+            connectivityCheckStates.put(networkType, state);
+        }
+
+        if (!state.canCheck()
+            || (connectivityThread != null && connectivityThread.isAlive()))
+        {
+            return;
+        }
+        
+        state.setChecked();
+        
+        connectivityThread = new Thread() {
+            @Override
+            public void run()
+            {
+                Uri serverUrl = Uri.parse(getServerUrl());
+                String hostName = serverUrl.getHost();
+
+                log("Checking connectivity to "+hostName+"...");
+
+                try
+                {
+                    InetAddress addr = InetAddress.getByName(hostName);
+                    if (addr.isReachable(App.HTTP_CONNECTION_TIMEOUT))
+                    {
+                        log("OK");                        
+                        onConnectivityRestored();
+                        return;
+                    }
+                }
+                catch (IOException ex)
+                {
+                    // just what we suspected... 
+                    // server not reachable on this interface
+                }
+                
+                log("Can't connect to "+hostName+".");
+                
+                WifiManager wmgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+                
+                if (!isNetworkFailoverEnabled())
+                {
+                    log("Network failover disabled.");
+                }
+                else if (networkType == ConnectivityManager.TYPE_WIFI)
+                {
+                    log("Switching from WIFI to MOBILE");                
+
+                    PendingIntent pendingIntent = PendingIntent.getBroadcast(App.this,
+                        0,
+                        new Intent(App.this, ReenableWifiReceiver.class),
+                        0);
+
+                    // set an alarm to try restoring Wi-Fi in a little while
+                    AlarmManager alarm = 
+                        (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+
+                    alarm.set(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,                        
+                        SystemClock.elapsedRealtime() + App.DISABLE_WIFI_INTERVAL,
+                        pendingIntent);   
+
+                    wmgr.setWifiEnabled(false);
+                }
+                else if (networkType == ConnectivityManager.TYPE_MOBILE 
+                        && !wmgr.isWifiEnabled())
+                {
+                    log("Switching from MOBILE to WIFI");
+                    wmgr.setWifiEnabled(true);                    
+                }
+                else
+                {
+                    log("Can't automatically fix connectivity.");
+                }     
+            }
+        };
+        connectivityThread.start();
+    }
+    
+    private int activeNetworkType = -1;
+    
+    public synchronized void onConnectivityChanged()
+    {
+        ConnectivityManager cm = 
+            (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        
+        NetworkInfo networkInfo = cm.getActiveNetworkInfo();
+        
+        if (networkInfo == null || !networkInfo.isConnected())
+        {
+            return;
+        }
+        
+        int networkType = networkInfo.getType();
+        
+        if (networkType == activeNetworkType)
+        {
+            return;
+        }
+        
+        activeNetworkType = networkType;        
+        log("Connected to " + networkInfo.getTypeName());        
+        asyncCheckConnectivity();
+    }
+    
+    public void onConnectivityRestored()
+    {
+        retryStuckIncomingMessages();  
+        
+        if (getOutgoingPollSeconds() > 0)
+        {
+            checkOutgoingMessages();
+        }
+        
+        // failed outgoing message status notifications are dropped...
+    }
 }

@@ -19,9 +19,9 @@ public class IncomingMms extends IncomingMessage {
     long id;
     String contentLocation;
     
-    public IncomingMms(App app, String from, long id)
+    public IncomingMms(App app, String from, long timestamp, long id)
     {
-        super(app, from);
+        super(app, from, timestamp);
         this.parts = new ArrayList<MmsPart>();
         this.id = id;
     }        
@@ -154,8 +154,7 @@ public class IncomingMms extends IncomingMessage {
             i++;
         }
         
-        ForwarderTask task = new ForwarderTask(this,
-            new BasicNameValuePair("from", getFrom()),
+        ForwarderTask task = new ForwarderTask(this,            
             new BasicNameValuePair("message", message),
             new BasicNameValuePair("message_type", App.MESSAGE_TYPE_MMS),
             new BasicNameValuePair("mms_parts", partsMetadata.toString())

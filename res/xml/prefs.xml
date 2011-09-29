@@ -55,6 +55,13 @@
     </ListPreference>
     
     <CheckBoxPreference
+            android:key="network_failover"
+            android:title="Network Failover"
+            android:summaryOff="Do nothing if phone can't connect to server via Wi-Fi"
+            android:summaryOn="Automatically switch to mobile data if phone can't connect to server via Wi-Fi"
+    ></CheckBoxPreference>
+    
+    <CheckBoxPreference
             android:key="test_mode"
             android:title="Test mode"
             android:summaryOff="Test mode is off (EnvayaSMS forwards all SMS)"

@@ -36,11 +36,11 @@ public abstract class QueuedMessage
         int minute = second * 60;
 
         if (numRetries == 1) {
-            app.log("1st failure; retry in 1 minute");
-            nextRetryTime = now + 1 * minute;
+            app.log("1st failure; retry in 20 seconds");
+            nextRetryTime = now + 20 * second;
         } else if (numRetries == 2) {
-            app.log("2nd failure; retry in 10 minutes");
-            nextRetryTime = now + 10 * minute;
+            app.log("2nd failure; retry in 5 minutes");
+            nextRetryTime = now + 5 * minute;
         } else if (numRetries == 3) {
             app.log("3rd failure; retry in 1 hour");
             nextRetryTime = now + 60 * minute;

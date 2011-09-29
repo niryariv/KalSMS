@@ -107,7 +107,7 @@ public class MmsUtils
         String m_type = "" + MESSAGE_TYPE_RETRIEVE_CONF;
 
         Cursor c = contentResolver.query(INBOX_URI, 
-                new String[] {"_id", "ct_l"}, 
+                new String[] {"_id", "ct_l", "date"}, 
                 "m_type = ? ", new String[] { m_type }, null);
         
         List<IncomingMms> messages = new ArrayList<IncomingMms>();        
@@ -115,8 +115,13 @@ public class MmsUtils
         while (c.moveToNext())
         {         
             long id = c.getLong(0);                               
+            long date = c.getLong(2);
                         
-            IncomingMms mms = new IncomingMms(app, getSenderNumber(id), id);
+            IncomingMms mms = new IncomingMms(app, 
+                getSenderNumber(id), 
+                date * 1000, // MMS timestamp is in seconds for some reason, 
+                             // while everything else is in ms
+                id);
             
             mms.setContentLocation(c.getString(1));
                         

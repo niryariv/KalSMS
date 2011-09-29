@@ -1,21 +1,24 @@
+
 package org.envaya.sms.receiver;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import org.envaya.sms.App;
 
-public class DequeueOutgoingMessageReceiver extends BroadcastReceiver {
+public class ConnectivityChangeReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        App app = (App) context.getApplicationContext();
+        final App app = (App) context.getApplicationContext();
         
         if (!app.isEnabled())
         {
             return;
         }
         
-        app.maybeDequeueOutgoingMessage();
-    }
+        app.onConnectivityChanged();
+    }    
 }
