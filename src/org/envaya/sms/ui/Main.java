@@ -31,6 +31,9 @@ public class Main extends Activity {
         }
     };
     
+    private ScrollView scrollView;
+    private TextView info;
+    
     private class TestTask extends HttpTask
     {
         public TestTask() {
@@ -44,14 +47,32 @@ public class Main extends Activity {
             app.log("Server connection OK!");            
         }
     }
+    
+    private int lastLogEpoch = -1;
 
     public void updateLogView()
-    {           
-        final ScrollView scrollView = (ScrollView) this.findViewById(R.id.info_scroll);
-        TextView info = (TextView) this.findViewById(R.id.info);
+    {                   
+        int logEpoch = app.getLogEpoch();
+        CharSequence displayedLog = app.getDisplayedLog();        
         
-        info.setText(app.getDisplayedLog());
-        
+        if (lastLogEpoch == logEpoch)
+        {
+            int beforeLen = info.getText().length();
+            int afterLen = displayedLog.length();
+            
+            if (beforeLen == afterLen)
+            {                
+                return;
+            }
+            
+            info.append(displayedLog, beforeLen, afterLen);
+        }
+        else
+        {
+            info.setText(displayedLog);
+            lastLogEpoch = logEpoch;
+        }
+                
         scrollView.post(new Runnable() { public void run() { 
             scrollView.fullScroll(View.FOCUS_DOWN);
         } });
@@ -63,11 +84,13 @@ public class Main extends Activity {
         super.onCreate(savedInstanceState);
         
         app = (App) getApplication();
-                
+        
         setContentView(R.layout.main);
         PreferenceManager.setDefaultValues(this, R.xml.prefs, false);               
                         
-        TextView info = (TextView) this.findViewById(R.id.info);        
+        scrollView = (ScrollView) this.findViewById(R.id.info_scroll);
+        info = (TextView) this.findViewById(R.id.info);        
+        
         info.setMovementMethod(new ScrollingMovementMethod());        
         
         updateLogView();

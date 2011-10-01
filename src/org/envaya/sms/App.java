@@ -86,7 +86,7 @@ public final class App extends Application {
     public static final String STATUS_EXTRA_INDEX = "status";
     public static final String STATUS_EXTRA_NUM_PARTS = "num_parts";            
     
-    public static final int MAX_DISPLAYED_LOG = 4000;
+    public static final int MAX_DISPLAYED_LOG = 8000;
     public static final int LOG_TIMESTAMP_INTERVAL = 60000; // ms
     
     public static final int HTTP_CONNECTION_TIMEOUT = 10000; // ms
@@ -437,6 +437,8 @@ public final class App extends Application {
         Log.d(LOG_NAME, msg);
     }
 
+    private int logEpoch = 0;
+    
     public synchronized void log(CharSequence msg) 
     {
         Log.d(LOG_NAME, msg.toString());       
@@ -457,6 +459,7 @@ public final class App extends Application {
             }
 
             displayedLog.replace(0, startPos, "[Older log messages not shown]\n");
+            logEpoch++;
         }
 
         // display a timestamp in the log occasionally        
@@ -472,6 +475,16 @@ public final class App extends Application {
         displayedLog.append("\n");        
             
         sendBroadcast(new Intent(App.LOG_CHANGED_INTENT));
+    }
+
+    /*
+     * Changes whenever we change the beginning of the displayed log.
+     * If it doesn't change, the Main activity can update the log view much
+     * faster by using TextView.append() instead of TextView.setText()
+     */
+    public int getLogEpoch()
+    {
+        return logEpoch;
     }
     
     public synchronized CharSequence getDisplayedLog()

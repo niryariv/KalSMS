@@ -123,6 +123,8 @@ public class PendingMessages extends ListActivity {
         
         displayedMessages = messages;
         
+        this.setTitle("EnvayaSMS : Pending Messages ("+messages.size()+")");
+        
         final LayoutInflater inflater = (LayoutInflater)getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         final DateFormat longFormat = new SimpleDateFormat("dd MMM hh:mm:ss");
         final DateFormat shortFormat = new SimpleDateFormat("hh:mm:ss");        
@@ -169,6 +171,8 @@ public class PendingMessages extends ListActivity {
         };
         
         setListAdapter(arrayAdapter);                  
+        
+        
     }
     
     public void deleteMessage(QueuedMessage message)

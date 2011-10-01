@@ -176,6 +176,11 @@ public class Outbox {
         {
             outgoingQueue.remove(message);
         }
+        else if (message.getProcessingState() == OutgoingMessage.ProcessingState.Sending)
+        {
+            numSendingOutgoingMessages--;
+        }        
+        
         notifyMessageStatus(message, App.STATUS_FAILED, 
                 "deleted by user");
         app.log(message.getDescription() + " deleted");

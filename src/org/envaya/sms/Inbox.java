@@ -79,6 +79,10 @@ public class Inbox {
         {
             incomingQueue.remove(message);
         }        
+        else if (message.getProcessingState() == IncomingMessage.ProcessingState.Forwarding)
+        {
+            numForwardingMessages--;
+        }        
         
         app.log(message.getDescription() + " deleted");
         notifyChanged();
