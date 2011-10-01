@@ -27,7 +27,7 @@ public class IncomingSms extends IncomingMessage {
         for (int i = 1; i < numParts; i++)
         {
             SmsMessage smsPart = smsParts.get(i);
-            
+
             if (!smsPart.getOriginatingAddress().equals(from))
             {
                 throw new InvalidParameterException(

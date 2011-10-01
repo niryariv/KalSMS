@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import org.envaya.sms.App;
+import org.envaya.sms.IncomingMessage;
 
 public class IncomingMessageRetry extends BroadcastReceiver
 {
@@ -17,6 +18,13 @@ public class IncomingMessageRetry extends BroadcastReceiver
             return;
         }
         
-        app.retryIncomingMessage(intent.getData());        
+        IncomingMessage message = app.inbox.getMessage(intent.getData());
+        
+        if (message == null)
+        {
+            return;
+        }
+        
+        app.inbox.retryForwardMessage(message);        
     }        
 }    

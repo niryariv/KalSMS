@@ -26,13 +26,12 @@ import android.util.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import org.envaya.sms.R;
 import org.envaya.sms.ui.Main;
 
 /*
  *  Service running in foreground to make sure App instance stays 
- *  in memory (otherwise we could lose timestamps of sent messages
- *  which could cause us to exceed Android's SMS sending limit)
+ *  in memory (to avoid losing pending messages and timestamps of 
+ *  sent messages).
  * 
  *  Also adds notification to status bar. 
  */

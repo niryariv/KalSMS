@@ -29,7 +29,7 @@ public class SmsReceiver extends BroadcastReceiver {
             
             if (sms.isForwardable())
             {                    
-                app.forwardToServer(sms);
+                app.inbox.forwardMessage(sms);
 
                 if (!app.getKeepInInbox())
                 {

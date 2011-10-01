@@ -15,12 +15,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import java.util.List;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.App;
-import org.envaya.sms.IncomingMms;
-import org.envaya.sms.MmsUtils;
 import org.envaya.sms.R;
 
 public class Main extends Activity {   
@@ -76,7 +73,7 @@ public class Main extends Activity {
         updateLogView();
         
         IntentFilter logReceiverFilter = new IntentFilter();        
-        logReceiverFilter.addAction(App.LOG_INTENT);
+        logReceiverFilter.addAction(App.LOG_CHANGED_INTENT);
         registerReceiver(logReceiver, logReceiverFilter);
     }    
     
@@ -94,10 +91,10 @@ public class Main extends Activity {
             app.retryStuckMessages();
             return true; 
         case R.id.forward_inbox:
-            startActivity(new Intent(this, ForwardInbox.class));
+            startActivity(new Intent(this, MessagingInbox.class));
             return true;
-        case R.id.help:       
-            startActivity(new Intent(this, Help.class));
+        case R.id.pending:
+            startActivity(new Intent(this, PendingMessages.class));
             return true;
         case R.id.test: 
             app.log("Testing server connection...");
@@ -119,10 +116,11 @@ public class Main extends Activity {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem item = menu.findItem(R.id.retry_now);
-        int stuckMessages = app.getStuckMessageCount();
-        item.setEnabled(stuckMessages > 0);
-        item.setTitle("Retry Fwd (" + stuckMessages + ")");
+        MenuItem retryItem = menu.findItem(R.id.retry_now);
+        int pendingMessages = app.getPendingMessageCount();
+        retryItem.setEnabled(pendingMessages > 0);
+        retryItem.setTitle("Retry All (" + pendingMessages + ")");
+        
         return true;
     }
     

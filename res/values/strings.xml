@@ -5,6 +5,7 @@
     <string name="test">Test Connection</string>
     <string name="check_now">Check Messages</string>
     <string name="help">Help</string>
+    <string name="pending">Pending Msgs...</string>
     <string name="retry_now">Retry</string>
     <string name="forward_inbox">Fwd Inbox...</string>
     <string name='service_started'>New SMS will be forwarded to server</string>

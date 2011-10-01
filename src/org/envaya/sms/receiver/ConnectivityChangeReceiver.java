@@ -4,8 +4,6 @@ package org.envaya.sms.receiver;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import org.envaya.sms.App;
 
 public class ConnectivityChangeReceiver extends BroadcastReceiver {

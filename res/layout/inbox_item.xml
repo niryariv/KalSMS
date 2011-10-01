@@ -1,34 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<org.envaya.sms.ui.CheckableRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="wrap_content" 
-    android:background="#cccccc">          
-<org.envaya.sms.ui.InertCheckBox android:id="@+id/inbox_checkbox"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content" 
-    android:focusable="false" 
-    />            
+    android:background="#333333">          
 <TextView 
     android:id="@+id/inbox_address" 
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"  
-    android:layout_toRightOf="@id/inbox_checkbox"
-    android:layout_alignTop="@id/inbox_checkbox"
-    android:textColor="#333333" 
+    android:textColor="#FFFFFF" 
     android:layout_marginTop="4sp"
-    android:layout_marginLeft="6sp"
-    android:focusable="false" 
+    android:layout_marginLeft="6sp" 
     android:textSize="14sp"></TextView>    
 <TextView 
     android:id="@+id/inbox_body"     
-    android:layout_below="@id/inbox_address"
-    android:layout_alignLeft="@id/inbox_address"
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"     
-    android:textColor="#666666" 
+    android:textColor="#CCCCCC" 
+    android:layout_marginLeft="6sp" 
     android:layout_marginBottom="6sp"
-    android:focusable="false" 
-    android:paddingBottom="6sp"
     android:textSize="14sp"></TextView>
-</org.envaya.sms.ui.CheckableRelativeLayout>
+</LinearLayout>

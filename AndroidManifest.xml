@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="org.envaya.sms"
-      android:versionCode="12"
-      android:versionName="2.0-rc2">
+      android:versionCode="13"
+      android:versionName="2.0">
          
     <uses-sdk android:minSdkVersion="4" />
          
@@ -35,8 +35,11 @@
         <activity android:name=".ui.TestPhoneNumbers" android:label="EnvayaSMS : Test Phone Numbers">
         </activity>                
         
-        <activity android:name=".ui.ForwardInbox" android:label="EnvayaSMS : Forward Inbox">
+        <activity android:name=".ui.MessagingInbox" android:label="EnvayaSMS : Forward Inbox">
         </activity>        
+        
+        <activity android:name=".ui.PendingMessages" android:label="EnvayaSMS : Pending Messages">
+        </activity>
 
         <activity android:name=".ui.Prefs" android:label="EnvayaSMS : Settings">
         </activity>

@@ -15,7 +15,7 @@ public class PollerTask extends HttpTask {
     @Override
     protected void handleResponse(HttpResponse response) throws Exception {
         for (OutgoingMessage reply : parseResponseXML(response)) {
-            app.sendOutgoingMessage(reply);
+            app.outbox.sendMessage(reply);
         }
     }
 }

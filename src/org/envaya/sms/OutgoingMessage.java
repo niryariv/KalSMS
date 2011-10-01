@@ -23,7 +23,8 @@ public class OutgoingMessage extends QueuedMessage {
         None,           // not doing anything with this sms now... just sitting around
         Queued,         // in the outgoing queue waiting to be sent
         Sending,        // passed to an expansion pack, waiting for status notification
-        Scheduled       // waiting for a while before retrying after failure sending
+        Scheduled,      // waiting for a while before retrying after failure sending
+        Sent
     }
     
     public OutgoingMessage(App app)
@@ -143,4 +144,29 @@ public class OutgoingMessage extends QueuedMessage {
         intent.setData(this.getUri());
         return intent;
     }       
+    
+    public String getStatusText()
+    {
+        switch (state)
+        {
+            case Scheduled:
+                return "scheduled retry";
+            case Queued:
+                return "queued to send";
+            case Sending:
+                return "sending";
+            default:
+                return "";
+        }
+    }
+    
+    public String getDescription()
+    {
+        return getDisplayType() + " to " + getTo();
+    }
+    
+    public String getDisplayType()
+    {
+        return "SMS";
+    }
 }

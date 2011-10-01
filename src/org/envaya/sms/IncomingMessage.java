@@ -14,7 +14,8 @@ public abstract class IncomingMessage extends QueuedMessage {
     {
         None,           // not doing anything with this sms now... just sitting around
         Forwarding,     // currently sending to server
-        Scheduled       // waiting for a while before retrying after failure forwarding
+        Scheduled,      // waiting for a while before retrying after failure forwarding
+        Forwarded
     }    
     
     public IncomingMessage(App app, String from, long timestamp)
@@ -38,10 +39,7 @@ public abstract class IncomingMessage extends QueuedMessage {
     {
         this.state = status;
     }    
-   
-    
-    public abstract String getDisplayType();
-       
+
     public boolean isForwardable()
     {
         if (app.isTestMode() && !app.isTestPhoneNumber(from))
@@ -85,6 +83,24 @@ public abstract class IncomingMessage extends QueuedMessage {
         intent.setData(this.getUri());
         return intent;
     }    
+    
+    public String getStatusText()
+    {
+        switch (state)
+        {
+            case Scheduled:
+                return "scheduled retry";
+            case Forwarding:
+                return "forwarding to server";            
+            default:
+                return "";
+        }
+    }    
+    
+    public String getDescription()
+    {
+        return getDisplayType() + " from " + getFrom();
+    }
     
     public abstract void tryForwardToServer();
 }

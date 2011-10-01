@@ -34,10 +34,6 @@ libs/httpmime-4.1.2.jar is (c) Apache Software Foundation
 org.envaya.sms.Base64Coder is (c) 2003-2010 Christian d'Heureuse,
     released under MIT License (and others)
     
-org.envaya.sms.ui.InertCheckBox and org.envaya.sms.ui.CheckableRelativeLayout
-    is (c) C�dric Caron, released presumably into the public domain at
-    http://www.marvinlabs.com/2010/10/custom-listview-ability-check-items/
-    
 org.envaya.sms.App.chooseOutgoingSmsPackage and 
 org.envaya.sms.ForegroundService include code from Android,
     Copyright 2005-2009 The Android Open Source Project

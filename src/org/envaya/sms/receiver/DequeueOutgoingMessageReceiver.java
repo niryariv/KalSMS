@@ -16,6 +16,6 @@ public class DequeueOutgoingMessageReceiver extends BroadcastReceiver {
             return;
         }
         
-        app.maybeDequeueOutgoingMessage();
+        app.outbox.maybeDequeueMessage();
     }
 }

@@ -28,14 +28,13 @@ public class ForwarderTask extends HttpTask {
     protected void handleResponse(HttpResponse response) throws Exception {
 
         for (OutgoingMessage reply : parseResponseXML(response)) {
-            app.sendOutgoingMessage(reply);
+            app.outbox.sendMessage(reply);
         }
-
-        app.setIncomingMessageStatus(message, true);
+        app.inbox.messageForwarded(message);
     }
 
     @Override
     protected void handleFailure() {
-        app.setIncomingMessageStatus(message, false);
+        app.inbox.messageFailed(message);
     }
 }

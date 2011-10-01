@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import org.envaya.sms.App;
+import org.envaya.sms.OutgoingMessage;
 
 public class OutgoingMessageRetry extends BroadcastReceiver
 {
@@ -16,6 +17,13 @@ public class OutgoingMessageRetry extends BroadcastReceiver
         {
             return;
         }        
-        app.retryOutgoingMessage(intent.getData());        
+        
+        OutgoingMessage message = app.outbox.getMessage(intent.getData());
+        if (message == null)
+        {
+            return;
+        }
+        
+        app.outbox.enqueueMessage(message);
     }
 }    

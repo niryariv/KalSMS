@@ -45,7 +45,7 @@ public class CheckMmsInboxService extends IntentService
 
                 if (mms.isForwardable())
                 {                
-                    app.forwardToServer(mms);                                    
+                    app.inbox.forwardMessage(mms);                                    
                 }
                 else
                 {

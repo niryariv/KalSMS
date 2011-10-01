@@ -80,4 +80,14 @@
             android:targetClass="org.envaya.sms.ui.TestPhoneNumbers" />
     </PreferenceScreen>
 
+<PreferenceScreen 
+        android:key="help" 
+        android:title="About EnvayaSMS"
+    >
+       <intent 
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="org.envaya.sms"
+            android:targetClass="org.envaya.sms.ui.Help" />
+    </PreferenceScreen>
+
 </PreferenceScreen>

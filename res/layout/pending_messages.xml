@@ -11,9 +11,9 @@
                android:layout_weight="1"
        />
     <TextView android:id="@android:id/empty"
-        android:text="The inbox is empty."
+        android:text="There are no pending messages."
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
        android:layout_weight="1"
-    />            
+    />
  </LinearLayout>

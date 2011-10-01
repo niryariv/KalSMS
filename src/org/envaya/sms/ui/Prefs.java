@@ -16,10 +16,14 @@ import org.envaya.sms.R;
 
 public class Prefs extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 
+    private App app;
+    
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.prefs);
+        
+        app = (App) getApplication();
         
         PreferenceScreen screen = this.getPreferenceScreen();
         int numPrefs = screen.getPreferenceCount();
@@ -46,8 +50,7 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) { 
         
-        App app = (App) getApplication();
-        
+
         if (key.equals("outgoing_interval"))
         {            
             app.setOutgoingMessageAlarm();
@@ -109,7 +112,9 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 
     private void updatePrefSummary(Preference p)
     {
-        if ("wifi_sleep_policy".equals(p.getKey()))
+        String key = p.getKey();
+        
+        if ("wifi_sleep_policy".equals(key))
         {       
             int sleepPolicy;
             
@@ -135,6 +140,10 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
                     p.setSummary("Wi-Fi will stay connected when the phone sleeps");
                     break;
             }
+        }
+        else if ("help".equals(key))
+        {
+            p.setSummary(app.getPackageInfo().versionName);
         }
         else if (p instanceof ListPreference) {
             p.setSummary(((ListPreference)p).getEntry()); 

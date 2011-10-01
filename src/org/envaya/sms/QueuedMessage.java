@@ -6,18 +6,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.SystemClock;
+import java.util.Date;
 
 public abstract class QueuedMessage 
 {
     protected long nextRetryTime = 0;
     protected int numRetries = 0;
-    
+    protected Date dateCreated = new Date();
     public App app;   
 
     public QueuedMessage(App app)
     {
         this.app = app;
-    }    
+    }
+    
+    public Date getDateCreated()
+    {
+        return dateCreated;
+    }
+    
+    public int getNumRetries()
+    {
+        return numRetries;
+    }
     
     public boolean canRetryNow() {
         return (nextRetryTime > 0 && nextRetryTime < SystemClock.elapsedRealtime());
@@ -63,6 +74,10 @@ public abstract class QueuedMessage
 
         return true;
     }
+        
+    public abstract String getDisplayType();    
+    public abstract String getDescription();
+    public abstract String getStatusText();
     
     public abstract Uri getUri();
 

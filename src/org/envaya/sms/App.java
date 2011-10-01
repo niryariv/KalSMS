@@ -17,7 +17,6 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.telephony.SmsManager;
 import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
@@ -25,12 +24,10 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
@@ -38,15 +35,12 @@ import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
-import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
 import org.envaya.sms.receiver.OutgoingMessagePoller;
 import org.envaya.sms.receiver.ReenableWifiReceiver;
-import org.envaya.sms.task.HttpTask;
 import org.envaya.sms.task.PollerTask;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -68,7 +62,11 @@ public final class App extends Application {
     public static final String LOG_NAME = "EnvayaSMS";
     
     // intent to signal to Main activity (if open) that log has changed
-    public static final String LOG_INTENT = "org.envaya.sms.LOG";
+    public static final String LOG_CHANGED_INTENT = "org.envaya.sms.LOG_CHANGED";
+
+    // signal to PendingMessages activity (if open) that inbox/outbox has changed
+    public static final String INBOX_CHANGED_INTENT = "org.envaya.sms.INBOX_CHANGED";
+    public static final String OUTBOX_CHANGED_INTENT = "org.envaya.sms.OUTBOX_CHANGED";
                 
     public static final String QUERY_EXPANSION_PACKS_INTENT = "org.envaya.sms.QUERY_EXPANSION_PACKS";
     public static final String QUERY_EXPANSION_PACKS_EXTRA_PACKAGES = "packages";
@@ -112,30 +110,9 @@ public final class App extends Application {
     // between when we prepare messages and when SMSDispatcher receives them
     public static final int OUTGOING_SMS_CHECK_PERIOD = 3605000; // one hour plus 5 sec (in ms)    
     public static final int OUTGOING_SMS_MAX_COUNT = 100;
-    
-    private Map<Uri, IncomingMessage> incomingMessages = new HashMap<Uri, IncomingMessage>();
-    private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
-    
-    private int numPendingOutgoingMessages = 0;
-    private PriorityQueue<OutgoingMessage> outgoingQueue = new PriorityQueue<OutgoingMessage>(10, 
-        new Comparator<OutgoingMessage>() { 
-            public int compare(OutgoingMessage t1, OutgoingMessage t2)
-            {
-                int pri2 = t2.getPriority();
-                int pri1 = t1.getPriority();
-                
-                if (pri1 != pri2)
-                {
-                    return pri2 - pri1;
-                }
-                
-                int order2 = t2.getLocalId();
-                int order1 = t1.getLocalId();
-                
-                return order1 - order2;
-            }
-        }            
-    );
+        
+    public final Inbox inbox = new Inbox(this);
+    public final Outbox outbox = new Outbox(this);    
     
     private SharedPreferences settings;
     private MmsObserver mmsObserver;
@@ -147,16 +124,14 @@ public final class App extends Application {
     // list of package names (e.g. org.envaya.sms, or org.envaya.sms.packXX)
     // for this package and all expansion packs
     private List<String> outgoingMessagePackages = new ArrayList<String>();
+                
+    // map of package name => sorted list of timestamps of outgoing messages
+    private HashMap<String, ArrayList<Long>> outgoingTimestamps
+            = new HashMap<String, ArrayList<Long>>();
     
     // count to provide round-robin selection of expansion packs
     private int outgoingMessageCount = -1;
     
-    private long nextValidOutgoingTime;
-    
-    // map of package name => sorted list of timestamps of outgoing messages
-    private HashMap<String, ArrayList<Long>> outgoingTimestamps
-            = new HashMap<String, ArrayList<Long>>();
-        
     private MmsUtils mmsUtils;
     
     @Override
@@ -226,7 +201,7 @@ public final class App extends Application {
         return packageInfo;
     }
     
-    private synchronized String chooseOutgoingSmsPackage(int numParts)
+    public synchronized String chooseOutgoingSmsPackage(int numParts)
     {
         outgoingMessageCount++;
         
@@ -280,7 +255,7 @@ public final class App extends Application {
      * outgoing SMS with numParts parts. Only valid immediately after 
      * chooseOutgoingSmsPackage returns null.
      */
-    private synchronized long getNextValidOutgoingTime(int numParts)
+    public synchronized long getNextValidOutgoingTime(int numParts)
     {       
         long minTime = System.currentTimeMillis() + OUTGOING_SMS_CHECK_PERIOD;
         
@@ -449,302 +424,15 @@ public final class App extends Application {
         return settings.getString("password", "");
     }
 
-    private void notifyStatus(OutgoingMessage sms, String status, String errorMessage) {
-        String serverId = sms.getServerId();
-               
-        String logMessage;
-        if (status.equals(App.STATUS_SENT)) {
-            logMessage = "sent successfully";
-        } else if (status.equals(App.STATUS_FAILED)) {
-            logMessage = "could not be sent (" + errorMessage + ")";
-        } else {
-            logMessage = "queued";
-        }
-        String smsDesc = sms.getLogName();
-
-        if (serverId != null) {
-            log("Notifying server " + smsDesc + " " + logMessage);
-
-            new HttpTask(this,
-                new BasicNameValuePair("id", serverId),
-                new BasicNameValuePair("status", status),
-                new BasicNameValuePair("error", errorMessage),
-                new BasicNameValuePair("action", App.ACTION_SEND_STATUS)                    
-            ).execute();
-        } else {
-            log(smsDesc + " " + logMessage);
-        }
+    public synchronized void retryStuckMessages() {        
+        outbox.retryAll();
+        inbox.retryAll();
     }
 
-    public synchronized void retryStuckMessages() {
-        
-        this.nextValidOutgoingTime = 0;
-        
-        retryStuckOutgoingMessages();
-        retryStuckIncomingMessages();
-    }
-
-    public synchronized int getStuckMessageCount() {        
-        return outgoingMessages.size() + incomingMessages.size();
-    }
-
-    public synchronized void retryStuckOutgoingMessages() {
-        for (OutgoingMessage sms : outgoingMessages.values()) {
-            
-            OutgoingMessage.ProcessingState state = sms.getProcessingState();
-            
-            if (state != OutgoingMessage.ProcessingState.Queued
-                && state != OutgoingMessage.ProcessingState.Sending)
-            {
-                enqueueOutgoingMessage(sms);
-            }
-        }
-        maybeDequeueOutgoingMessage();
-    }
-
-    public synchronized void retryStuckIncomingMessages() {
-        for (IncomingMessage sms : incomingMessages.values()) {            
-            IncomingMessage.ProcessingState state = sms.getProcessingState();            
-            if (state != IncomingMessage.ProcessingState.Forwarding)
-            {            
-                enqueueIncomingMessage(sms);
-            }
-        }
+    public synchronized int getPendingMessageCount() {        
+        return outbox.size() + inbox.size();
     }
     
-    public synchronized void setIncomingMessageStatus(IncomingMessage message, boolean success) {        
-        
-        message.setProcessingState(IncomingMessage.ProcessingState.None);
-        
-        Uri uri = message.getUri();
-        if (success)
-        {
-            incomingMessages.remove(uri);
-            
-            if (message instanceof IncomingMms)
-            {
-                IncomingMms mms = (IncomingMms)message;
-                if (!getKeepInInbox())
-                {
-                    log("Deleting MMS " + mms.getId() + " from inbox...");
-                    mmsUtils.deleteFromInbox(mms);
-                }            
-            }
-        }
-        else 
-        {                        
-            if (message.scheduleRetry())
-            {
-                message.setProcessingState(IncomingMessage.ProcessingState.Scheduled);
-            }
-            else
-            {
-                incomingMessages.remove(uri);
-            }
-        }
-    }    
-
-    public synchronized void notifyOutgoingMessageStatus(Uri uri, int resultCode, int partIndex, int numParts) {
-        OutgoingMessage sms = outgoingMessages.get(uri);
-
-        if (sms == null) {
-            return;
-        }
-        
-        if (partIndex != 0)
-        {
-            // TODO: process message status for parts other than the first one
-            return;
-        }
-                                        
-        switch (resultCode) {
-            case Activity.RESULT_OK:
-                this.notifyStatus(sms, App.STATUS_SENT, "");
-                break;
-            case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                this.notifyStatus(sms, App.STATUS_FAILED, "generic failure");
-                break;
-            case SmsManager.RESULT_ERROR_RADIO_OFF:
-                this.notifyStatus(sms, App.STATUS_FAILED, "radio off");
-                break;
-            case SmsManager.RESULT_ERROR_NO_SERVICE:
-                this.notifyStatus(sms, App.STATUS_FAILED, "no service");
-                break;
-            case SmsManager.RESULT_ERROR_NULL_PDU:
-                this.notifyStatus(sms, App.STATUS_FAILED, "null PDU");
-                break;
-            default:
-                this.notifyStatus(sms, App.STATUS_FAILED, "unknown error");
-                break;
-        }
-        
-        sms.setProcessingState(OutgoingMessage.ProcessingState.None);
-
-        switch (resultCode) {
-            case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-            case SmsManager.RESULT_ERROR_RADIO_OFF:
-            case SmsManager.RESULT_ERROR_NO_SERVICE:
-                if (sms.scheduleRetry()) {
-                    sms.setProcessingState(OutgoingMessage.ProcessingState.Scheduled);
-                }
-                else {                    
-                    outgoingMessages.remove(uri);
-                }
-                break;
-            default:
-                outgoingMessages.remove(uri);
-                break;
-        }
-                
-        numPendingOutgoingMessages--;
-        maybeDequeueOutgoingMessage();
-    }
-
-    public synchronized void sendOutgoingMessage(OutgoingMessage sms) {
-        
-        String to = sms.getTo();
-        if (to == null || to.length() == 0)
-        {
-            notifyStatus(sms, App.STATUS_FAILED, "Destination address is empty");
-            return;
-        }        
-        
-        if (isTestMode() && !isTestPhoneNumber(to))
-        {
-            // this is mostly to prevent accidentally sending real messages to
-            // random people while testing...        
-            notifyStatus(sms, App.STATUS_FAILED, "Destination number is not in list of test senders");
-            return;
-        }
-        
-        String messageBody = sms.getMessageBody();
-        
-        if (messageBody == null || messageBody.length() == 0)
-        {
-            notifyStatus(sms, App.STATUS_FAILED, "Message body is empty");
-            return;
-        }               
-        
-        Uri uri = sms.getUri();
-        if (outgoingMessages.containsKey(uri)) {
-            debug("Duplicate outgoing " + sms.getLogName() + ", skipping");
-            return;
-        }
-
-        outgoingMessages.put(uri, sms);        
-        enqueueOutgoingMessage(sms);
-    }
-    
-    public synchronized void maybeDequeueOutgoingMessage()
-    {
-        long now = System.currentTimeMillis();        
-        if (nextValidOutgoingTime <= now && numPendingOutgoingMessages < 2)
-        {
-            OutgoingMessage sms = outgoingQueue.peek();
-            
-            if (sms == null)
-            {
-                return;
-            }
-            
-            SmsManager smgr = SmsManager.getDefault();
-            ArrayList<String> bodyParts = smgr.divideMessage(sms.getMessageBody());
-            
-            int numParts = bodyParts.size();
-            
-            if (numParts > App.OUTGOING_SMS_MAX_COUNT)
-            {
-                outgoingQueue.poll();
-                outgoingMessages.remove(sms.getUri());
-                notifyStatus(sms, App.STATUS_FAILED, "Message has too many parts ("+(numParts)+")");
-                return;
-            }
-            
-            String packageName = chooseOutgoingSmsPackage(numParts);            
-            
-            if (packageName == null)
-            {            
-                nextValidOutgoingTime = getNextValidOutgoingTime(numParts);                
-                                
-                if (nextValidOutgoingTime <= now) // should never happen
-                {
-                    nextValidOutgoingTime = now + 2000;
-                }
-                
-                long diff = nextValidOutgoingTime - now;
-                
-                log("Waiting for " + (diff/1000) + " seconds");
-                
-                AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-
-                Intent intent = new Intent(this, DequeueOutgoingMessageReceiver.class);
-                
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(this,
-                    0,
-                    intent,
-                    0);
-
-                alarm.set(
-                    AlarmManager.RTC_WAKEUP,
-                    nextValidOutgoingTime,
-                    pendingIntent);
-                
-                return;
-            }
-            
-            outgoingQueue.poll();            
-            numPendingOutgoingMessages++;
-            
-            sms.setProcessingState(OutgoingMessage.ProcessingState.Sending);
-            
-            sms.trySend(bodyParts, packageName);
-        }  
-    }
-    
-    public synchronized void enqueueOutgoingMessage(OutgoingMessage sms) 
-    {
-        outgoingQueue.add(sms);
-        sms.setProcessingState(OutgoingMessage.ProcessingState.Queued);
-        maybeDequeueOutgoingMessage();
-    }
-
-    public synchronized void forwardToServer(IncomingMessage message) {
-        Uri uri = message.getUri();
-        
-        if (incomingMessages.containsKey(uri)) {
-            log("Duplicate incoming "+message.getDisplayType()+", skipping");
-            return;
-        }
-
-        incomingMessages.put(uri, message);
-
-        log("Received "+message.getDisplayType()+" from " + message.getFrom());
-        
-        enqueueIncomingMessage(message);
-    }
-    
-    public synchronized void enqueueIncomingMessage(IncomingMessage message)
-    {
-        message.setProcessingState(IncomingMessage.ProcessingState.Forwarding);
-        message.tryForwardToServer();
-    }
-
-    public synchronized void retryIncomingMessage(Uri uri) {
-        IncomingMessage message = incomingMessages.get(uri);
-        if (message != null 
-            && message.getProcessingState() == IncomingMessage.ProcessingState.Scheduled) {
-            enqueueIncomingMessage(message);
-        }
-    }
-
-    public synchronized void retryOutgoingMessage(Uri uri) {
-        OutgoingMessage sms = outgoingMessages.get(uri);
-        if (sms != null 
-            && sms.getProcessingState() == OutgoingMessage.ProcessingState.Scheduled) {
-            enqueueOutgoingMessage(sms);
-        }
-    }
-
     public void debug(String msg) {
         Log.d(LOG_NAME, msg);
     }
@@ -783,8 +471,7 @@ public final class App extends Application {
         displayedLog.append(msg);
         displayedLog.append("\n");        
             
-        Intent broadcast = new Intent(App.LOG_INTENT);
-        sendBroadcast(broadcast);
+        sendBroadcast(new Intent(App.LOG_CHANGED_INTENT));
     }
     
     public synchronized CharSequence getDisplayedLog()
@@ -1092,15 +779,14 @@ public final class App extends Application {
         asyncCheckConnectivity();
     }
     
-    public void onConnectivityRestored()
+    private void onConnectivityRestored()
     {
-        retryStuckIncomingMessages();  
+        inbox.retryAll();
         
         if (getOutgoingPollSeconds() > 0)
         {
             checkOutgoingMessages();
-        }
-        
+        }                
         // failed outgoing message status notifications are dropped...
-    }
+    }    
 }
