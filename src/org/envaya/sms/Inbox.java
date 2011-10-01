@@ -4,11 +4,16 @@ import android.content.Intent;
 import android.net.Uri;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 
 public class Inbox {
     private Map<Uri, IncomingMessage> incomingMessages = new HashMap<Uri, IncomingMessage>();
     private App app;
+    
+    private int numForwardingMessages = 0;
+    private Queue<IncomingMessage> incomingQueue = new LinkedList<IncomingMessage>();
     
     public Inbox(App app)
     {
@@ -29,45 +34,68 @@ public class Inbox {
         }
 
         incomingMessages.put(uri, message);
-
-        app.log("Received "+message.getDisplayType()+" from " + message.getFrom());
+        app.log("Received "+message.getDescription());
         
-        message.setProcessingState(IncomingMessage.ProcessingState.Forwarding);
-        message.tryForwardToServer();        
-        
-        notifyChanged();
+        enqueueMessage(message);
     }                       
     
-    public synchronized void retryForwardMessage(IncomingMessage message)
+    public synchronized void enqueueMessage(IncomingMessage message) 
     {
         IncomingMessage.ProcessingState state = message.getProcessingState();
         
         if (state == IncomingMessage.ProcessingState.Scheduled
-            || state == IncomingMessage.ProcessingState.None)
-        {                              
+            || state == IncomingMessage.ProcessingState.None) 
+        {        
+            incomingQueue.add(message);
+            message.setProcessingState(IncomingMessage.ProcessingState.Queued);
+            notifyChanged();
+            maybeDequeueMessage();                       
+        }
+    }    
+    
+    public synchronized void maybeDequeueMessage()
+    {
+        if (numForwardingMessages < 2)
+        {
+            IncomingMessage message = incomingQueue.poll();
+            
+            if (message == null)
+            {
+                return;
+            }
+            
+            numForwardingMessages++;
             message.setProcessingState(IncomingMessage.ProcessingState.Forwarding);
             message.tryForwardToServer();
-            
             notifyChanged();
-        }
-    }
+        }          
+    }        
     
     public synchronized void deleteMessage(IncomingMessage message)
     {
         incomingMessages.remove(message.getUri());
-        app.log("SMS from " + message.getFrom() + " deleted");
+        
+        if (message.getProcessingState() == IncomingMessage.ProcessingState.Queued)
+        {
+            incomingQueue.remove(message);
+        }        
+        
+        app.log(message.getDescription() + " deleted");
         notifyChanged();
     }    
     
     public synchronized void messageFailed(IncomingMessage message) 
     {        
-        message.setProcessingState(IncomingMessage.ProcessingState.None);
+        message.setProcessingState(IncomingMessage.ProcessingState.None);                
         
         if (message.scheduleRetry())
         {
             message.setProcessingState(IncomingMessage.ProcessingState.Scheduled);
         }
         notifyChanged();
+        
+        numForwardingMessages--;
+        maybeDequeueMessage();
     }        
     
     public synchronized void messageForwarded(IncomingMessage message) {
@@ -88,7 +116,10 @@ public class Inbox {
                 app.getMmsUtils().deleteFromInbox(mms);
             }            
         }        
-    }        
+        
+        numForwardingMessages--;
+        maybeDequeueMessage();
+    }
     
     private void notifyChanged()
     {
@@ -97,7 +128,7 @@ public class Inbox {
     
     public synchronized void retryAll() {
         for (IncomingMessage message : incomingMessages.values()) {            
-            retryForwardMessage(message);
+            enqueueMessage(message);
         }
     }
     

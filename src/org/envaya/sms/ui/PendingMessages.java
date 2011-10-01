@@ -19,7 +19,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import java.text.DateFormat;
@@ -221,7 +220,7 @@ public class PendingMessages extends ListActivity {
     {
         if (message instanceof IncomingMessage)
         {
-            app.inbox.retryForwardMessage((IncomingMessage)message);
+            app.inbox.enqueueMessage((IncomingMessage)message);
         }
         else
         {

@@ -13,6 +13,7 @@ public abstract class IncomingMessage extends QueuedMessage {
     public enum ProcessingState
     {
         None,           // not doing anything with this sms now... just sitting around
+        Queued,         // waiting to forward to server
         Forwarding,     // currently sending to server
         Scheduled,      // waiting for a while before retrying after failure forwarding
         Forwarded
@@ -90,6 +91,8 @@ public abstract class IncomingMessage extends QueuedMessage {
         {
             case Scheduled:
                 return "scheduled retry";
+            case Queued:
+                return "queued to forward";
             case Forwarding:
                 return "forwarding to server";            
             default:

@@ -25,6 +25,6 @@ public class IncomingMessageRetry extends BroadcastReceiver
             return;
         }
         
-        app.inbox.retryForwardMessage(message);        
+        app.inbox.enqueueMessage(message);        
     }        
 }    

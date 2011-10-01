@@ -178,7 +178,7 @@ public class Outbox {
         }
         notifyMessageStatus(message, App.STATUS_FAILED, 
                 "deleted by user");
-        app.log("SMS to " + message.getTo() + " deleted");
+        app.log(message.getDescription() + " deleted");
         notifyChanged();
     }    
     
