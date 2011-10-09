@@ -20,5 +20,9 @@ On a phone running EnvayaSMS, go to Menu -> Settings and enter:
 
 To send an outgoing SMS, use 
     php example/send_sms.php
+    
+example/www/test.html allows you to simulate the HTTP requests made by EnvayaSMS 
+in your browser without actually using the EnvayaSMS app.
+If you're using server.php, just go to http://<your_ip_address>:8002/test.html
 
 See EnvayaSMS.php and example/www/index.php 

@@ -38,3 +38,7 @@ org.envaya.sms.App.chooseOutgoingSmsPackage and
 org.envaya.sms.ForegroundService include code from Android,
     Copyright 2005-2009 The Android Open Source Project
     See NOTICE
+    
+server/php/example/www/test.html uses code from crypto-js,
+    Copyright (c) 2011, Jeff Mott,
+    released under new BSD license
