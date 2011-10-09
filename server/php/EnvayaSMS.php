@@ -22,7 +22,7 @@ class EnvayaSMS
     
     static function escape($val)
     {
-        return htmlspecialchars($val, ENT_COMPAT | ENT_XML1, 'UTF-8');
+        return htmlspecialchars($val, ENT_COMPAT, 'UTF-8');
     }    
     
     private static $request;
