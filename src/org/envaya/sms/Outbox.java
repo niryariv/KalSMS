@@ -57,8 +57,8 @@ public class Outbox {
         this.app = app;
     }    
     
-    private void notifyMessageStatus(OutgoingMessage sms, String status, String errorMessage) {
-        String serverId = sms.getServerId();
+    private void notifyMessageStatus(OutgoingMessage sms, final String status, final String errorMessage) {
+        final String serverId = sms.getServerId();
                
         String logMessage;
         if (status.equals(App.STATUS_SENT)) {
@@ -73,12 +73,15 @@ public class Outbox {
         if (serverId != null) {
             app.log("Notifying server " + smsDesc + " " + logMessage);
 
-            new HttpTask(app,
+            HttpTask task = new HttpTask(app,
                 new BasicNameValuePair("id", serverId),
                 new BasicNameValuePair("status", status),
                 new BasicNameValuePair("error", errorMessage),
                 new BasicNameValuePair("action", App.ACTION_SEND_STATUS)                    
-            ).execute();
+            );
+            task.setRetryOnConnectivityError(true);
+            task.execute();
+            
         } else {
             app.log(smsDesc + " " + logMessage);
         }

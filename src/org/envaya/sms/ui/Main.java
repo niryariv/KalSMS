@@ -101,6 +101,13 @@ public class Main extends Activity {
     }    
     
     @Override
+    public void onDestroy()
+    {        
+        this.unregisterReceiver(logReceiver);        
+        super.onDestroy();
+    }
+    
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection
         switch (item.getItemId()) {
@@ -140,9 +147,9 @@ public class Main extends Activity {
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem retryItem = menu.findItem(R.id.retry_now);
-        int pendingMessages = app.getPendingMessageCount();
-        retryItem.setEnabled(pendingMessages > 0);
-        retryItem.setTitle("Retry All (" + pendingMessages + ")");
+        int pendingTasks = app.getPendingTaskCount();
+        retryItem.setEnabled(pendingTasks > 0);
+        retryItem.setTitle("Retry All (" + pendingTasks + ")");
         
         return true;
     }

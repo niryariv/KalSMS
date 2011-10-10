@@ -1,6 +1,6 @@
 <html>
 <head>
-
+<title>EnvayaSMS Request Simulator</title>
 <style type='text/css'>
 body
 {
@@ -30,10 +30,12 @@ body
 <tr><th>Server URL</th><td><input id='server_url' type='text' size='40' /></td></tr>
 <tr><th>Phone Number</th><td><input id='phone_number' type='text' /></td></tr>
 <tr><th>Password</th><td><input id='password' type='password' /></td></tr>
+<tr><th>Log Messages</th><td><textarea id='log'  style='width:250px'></textarea></td></tr>
 <tr><th>Action</th><td><select id='action' onchange='actionChanged()' onkeypress='actionChanged()'>
     <option value='incoming'>incoming</option>
     <option value='outgoing'>outgoing</option>
     <option value='send_status'>send_status</option>
+    <option value='device_status'>device_status</option>
     <option value='test'>test</option>
 </select></td></tr>
 </table>
@@ -46,7 +48,7 @@ body
     <option value='sms'>sms</option>
     <option value='mms'>mms</option>
 </select></td></tr>
-<tr><th>Message</th><td><textarea id='message'></textarea></td></tr>
+<tr><th>Message</th><td><textarea id='message' style='width:250px'></textarea></td></tr>
 <tr><th>Timestamp</th><td><input id='timestamp' type='text' /></td></tr>
 </table>
 </div>
@@ -69,6 +71,17 @@ body
 <div id='action_test'  style='display:none'>
 <h4>Parameters for action=test:</h4>
 (None)
+</div>
+<div id='action_device_status'  style='display:none'>
+<h4>Parameters for action=device_status:</h4>
+<table class='smsTable'>
+<tr><th>Status</th><td><select id='device_status'>
+    <option value='power_connected'>power_connected</option>
+    <option value='power_disconnected'>power_disconnected</option>
+    <option value='battery_low'>battery_low</option>    
+    <option value='battery_okay'>battery_okay</option>    
+</select></td></tr>
+</table>
 </div>
 
 
@@ -100,6 +113,7 @@ function performAction() {
         version: '13',
         phone_number: $('phone_number').value,
         action: action,
+        log: $('log').value
     };  
     
     if (action == 'incoming')
@@ -114,6 +128,10 @@ function performAction() {
         params.id = $('id').value;
         params.status = $('status').value;
         params.error = $('error').value;
+    }
+    else if (action == 'device_status')
+    {
+        params.status = $('device_status').value;
     }
             
     var xhr = (window.ActiveXObject && !window.XMLHttpRequest) ? new ActiveXObject("Msxml2.XMLHTTP") : new XMLHttpRequest();

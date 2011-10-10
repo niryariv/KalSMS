@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="org.envaya.sms"
-      android:versionCode="13"
-      android:versionName="2.0">
+      android:versionCode="14"
+      android:versionName="2.0.1">
          
     <uses-sdk android:minSdkVersion="4" />
          
@@ -105,11 +105,20 @@
             </intent-filter>            
         </receiver>        
         
-        <receiver android:name=".receiver.ConnectivityChangeReceiver" > 
+        <receiver android:name=".receiver.ConnectivityChangeReceiver" >        
             <intent-filter> 
                 <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
             </intent-filter> 
         </receiver>         
+        
+        <receiver android:name=".receiver.DeviceStatusReceiver"> 
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.BATTERY_OKAY" />
+            </intent-filter>
+        </receiver>
         
         <service android:name=".CheckMmsInboxService">
         </service>
@@ -117,5 +126,5 @@
         <service android:name=".ForegroundService">
         </service>            
         
-    </application>    
+    </application>
 </manifest> 

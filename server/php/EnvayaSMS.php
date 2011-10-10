@@ -11,11 +11,17 @@ class EnvayaSMS
     const ACTION_INCOMING = 'incoming';
     const ACTION_OUTGOING = 'outgoing';
     const ACTION_SEND_STATUS = 'send_status';
+    const ACTION_DEVICE_STATUS = 'device_status';
     const ACTION_TEST = 'test';
 
     const STATUS_QUEUED = 'queued';
     const STATUS_FAILED = 'failed';
     const STATUS_SENT = 'sent';
+    
+    const DEVICE_STATUS_POWER_CONNECTED = "power_connected";
+    const DEVICE_STATUS_POWER_DISCONNECTED = "power_disconnected";
+    const DEVICE_STATUS_BATTERY_LOW = "battery_low";
+    const DEVICE_STATUS_BATTERY_OKAY = "battery_okay";
     
     const MESSAGE_TYPE_SMS = 'sms';
     const MESSAGE_TYPE_MMS = 'mms';    
@@ -49,11 +55,13 @@ class EnvayaSMS_Request
     
     public $version;
     public $phone_number;
+    public $log;
 
     function __construct()
     {
         $this->version = $_POST['version'];
         $this->phone_number = $_POST['phone_number'];
+        $this->log = @$_POST['log'];
     }
     
     function get_action()
@@ -77,6 +85,8 @@ class EnvayaSMS_Request
                 return new EnvayaSMS_Action_SendStatus($this);
             case EnvayaSMS::ACTION_TEST:
                 return new EnvayaSMS_Action_Test($this);
+            case EnvayaSMS::ACTION_DEVICE_STATUS:
+                return new EnvayaSMS_Action_DeviceStatus($this);                
             default:
                 return new EnvayaSMS_Action($this);
         }
@@ -246,5 +256,17 @@ class EnvayaSMS_Action_SendStatus extends EnvayaSMS_Action
         $this->status = $_POST['status'];
         $this->id = $_POST['id'];
         $this->error = $_POST['error'];
+    } 
+}
+
+class EnvayaSMS_Action_DeviceStatus extends EnvayaSMS_Action
+{    
+    public $status;     // EnvayaSMS::DEVICE_STATUS_* values
+    
+    function __construct($request)
+    {
+        parent::__construct($request);   
+        $this->type = EnvayaSMS::ACTION_DEVICE_STATUS;        
+        $this->status = $_POST['status'];
     } 
 }

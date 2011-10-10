@@ -26,8 +26,10 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
@@ -41,6 +43,7 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.envaya.sms.receiver.OutgoingMessagePoller;
 import org.envaya.sms.receiver.ReenableWifiReceiver;
+import org.envaya.sms.task.HttpTask;
 import org.envaya.sms.task.PollerTask;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -50,11 +53,17 @@ public final class App extends Application {
     public static final String ACTION_OUTGOING = "outgoing";
     public static final String ACTION_INCOMING = "incoming";
     public static final String ACTION_SEND_STATUS = "send_status";
+    public static final String ACTION_DEVICE_STATUS = "device_status";
     public static final String ACTION_TEST = "test";
     
     public static final String STATUS_QUEUED = "queued";
     public static final String STATUS_FAILED = "failed";
     public static final String STATUS_SENT = "sent";
+    
+    public static final String DEVICE_STATUS_POWER_CONNECTED = "power_connected";
+    public static final String DEVICE_STATUS_POWER_DISCONNECTED = "power_disconnected";
+    public static final String DEVICE_STATUS_BATTERY_LOW = "battery_low";
+    public static final String DEVICE_STATUS_BATTERY_OKAY = "battery_okay";
     
     public static final String MESSAGE_TYPE_MMS = "mms";
     public static final String MESSAGE_TYPE_SMS = "sms";
@@ -113,6 +122,8 @@ public final class App extends Application {
         
     public final Inbox inbox = new Inbox(this);
     public final Outbox outbox = new Outbox(this);    
+    
+    public final Queue<HttpTask> queuedTasks = new LinkedList<HttpTask>();
     
     private SharedPreferences settings;
     private MmsObserver mmsObserver;
@@ -427,10 +438,11 @@ public final class App extends Application {
     public synchronized void retryStuckMessages() {        
         outbox.retryAll();
         inbox.retryAll();
+        retryQueuedTasks();
     }
 
-    public synchronized int getPendingMessageCount() {        
-        return outbox.size() + inbox.size();
+    public synchronized int getPendingTaskCount() {        
+        return outbox.size() + inbox.size() + queuedTasks.size();
     }
     
     public void debug(String msg) {
@@ -439,8 +451,24 @@ public final class App extends Application {
 
     private int logEpoch = 0;
     
-    public synchronized void log(CharSequence msg) 
+    private StringBuilder newLogBuffer = new StringBuilder();
+    
+    public synchronized String getNewLogEntries()
     {
+        String res = newLogBuffer.toString();
+        newLogBuffer.setLength(0);
+        return res;
+    }
+    
+    // clients may sometimes unget log entries out of order,
+    // but most of the time this will be the right order
+    public synchronized void ungetNewLogEntries(String logEntries)
+    {
+        newLogBuffer.insert(0, logEntries);
+    }
+    
+    public synchronized void log(CharSequence msg) 
+    {        
         Log.d(LOG_NAME, msg.toString());       
                                  
         // prevent displayed log from growing too big
@@ -462,6 +490,8 @@ public final class App extends Application {
             logEpoch++;
         }
 
+        int prevLength = displayedLog.length();
+        
         // display a timestamp in the log occasionally        
         long logTime = SystemClock.elapsedRealtime();        
         if (logTime - lastLogTime > LOG_TIMESTAMP_INTERVAL)
@@ -472,8 +502,10 @@ public final class App extends Application {
         }
         
         displayedLog.append(msg);
-        displayedLog.append("\n");        
-            
+        displayedLog.append("\n");  
+                
+        newLogBuffer.append(displayedLog, prevLength, displayedLog.length());
+    
         sendBroadcast(new Intent(App.LOG_CHANGED_INTENT));
     }
 
@@ -670,12 +702,23 @@ public final class App extends Application {
 
         if (activeNetwork == null || !activeNetwork.isConnected())
         {
-            WifiManager wmgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+            WifiManager wmgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);            
+
+            if (activeNetwork != null)
+            {
+                log(activeNetwork.getTypeName() + "=" + activeNetwork.getState());
+            }
+            else
+            {
+                log("Not connected to any network.");   
+            }
             
             if (!wmgr.isWifiEnabled() && isNetworkFailoverEnabled())
             {
+                log("Enabling WIFI...");
                 wmgr.setWifiEnabled(true);
             }
+
             return;
         }
         
@@ -799,7 +842,28 @@ public final class App extends Application {
         if (getOutgoingPollSeconds() > 0)
         {
             checkOutgoingMessages();
-        }                
-        // failed outgoing message status notifications are dropped...
+        }
+        
+        retryQueuedTasks();
     }    
+    
+    public synchronized void retryQueuedTasks()
+    {        
+        while (true)
+        {
+            HttpTask task = queuedTasks.poll();
+            
+            if (task == null)
+            {
+                break;
+            }
+            
+            task.execute();
+        }
+    }
+    
+    public synchronized void addQueuedTask(HttpTask task)
+    {
+        queuedTasks.add(task);
+    }
 }

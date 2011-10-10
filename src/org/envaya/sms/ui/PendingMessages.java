@@ -93,6 +93,13 @@ public class PendingMessages extends ListActivity {
         
         refreshMessages();
     }
+    
+    @Override
+    public void onDestroy()
+    {
+        this.unregisterReceiver(refreshReceiver);        
+        super.onDestroy();
+    }    
 
     public void refreshMessages()
     {

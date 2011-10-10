@@ -22,6 +22,16 @@ if (!isset($password) || !$request->is_validated($password))
     return;
 }
 
+// append to EnvayaSMS app log
+$app_log = $request->log;
+if ($app_log)
+{
+    $log_file = dirname(__DIR__)."/log/sms_".preg_replace('#[^\w]#', '', $request->phone_number).".log";        
+    $f = fopen($log_file, "a");
+    fwrite($f, $app_log);
+    fclose($f);        
+} 
+
 $action = $request->get_action();
 
 switch ($action->type)
@@ -79,6 +89,10 @@ switch ($action->type)
             echo "invalid id";            
         }   
         return;
+    case EnvayaSMS::ACTION_DEVICE_STATUS:
+        error_log("device_status = {$action->status}");
+        echo "OK";
+        return;        
     case EnvayaSMS::ACTION_TEST:
         echo "OK";
         return;        

@@ -43,27 +43,40 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
     
     protected String url;    
     protected List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+    
+    protected BasicNameValuePair[] paramsArr;
 
     private List<FormBodyPart> formParts;
     private boolean useMultipartPost = false;    
     
     private HttpPost post;
+    private String logEntries;    
     
+    private boolean retryOnConnectivityError;
+        
     public HttpTask(App app, BasicNameValuePair... paramsArr)
     {
         super();
-        this.app = app;        
-        this.url = app.getServerUrl();
-        params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));            
-        params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
-        params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));                       
+        this.app = app;                
+        this.paramsArr = paramsArr;        
+        params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));
     }
+    
+    public void setRetryOnConnectivityError(boolean retry)
+    {
+        this.retryOnConnectivityError = retry;
+    }
+    
+    protected HttpTask getCopy()
+    {
+        return new HttpTask(app, paramsArr);
+    }    
     
     public void setFormParts(List<FormBodyPart> formParts)
     {
         useMultipartPost = true;
         this.formParts = formParts;
-    }                  
+    }                 
     
     private String getSignature()
             throws NoSuchAlgorithmException, UnsupportedEncodingException
@@ -97,12 +110,20 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         return new String(Base64Coder.encode(digest));            
     }    
     
-    protected HttpResponse doInBackground(String... ignored) {
+    protected HttpResponse doInBackground(String... ignored) {        
+        url = app.getServerUrl();        
+        
         if (url.length() == 0) {
             app.log("Can't contact server; Server URL not set");                        
             return null;
         }
 
+        logEntries = app.getNewLogEntries();
+        
+        params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
+        params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));
+        params.add(new BasicNameValuePair("log", logEntries));        
+                
         post = new HttpPost(url);        
         
         try
@@ -145,6 +166,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             else if (statusCode == 403)
             {
                 response.getEntity().consumeContent();
+                app.ungetNewLogEntries(logEntries);
                 app.log("Failed to authenticate to server");
                 app.log("(Phone number or password may be incorrect)");                
                 return null;
@@ -152,17 +174,24 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             else 
             {
                 response.getEntity().consumeContent();
+                app.ungetNewLogEntries(logEntries);
                 app.log("Received HTTP " + statusCode + " from server");
                 return null;
-            }            
+            }
         } 
         catch (IOException ex) 
         {
             post.abort();
+            app.ungetNewLogEntries(logEntries);
             app.logError("Error while contacting server", ex);
             
             if (ex instanceof UnknownHostException || ex instanceof SocketTimeoutException)
-            {                
+            {
+                if (retryOnConnectivityError)
+                {
+                    app.addQueuedTask(getCopy());
+                }
+                
                 app.asyncCheckConnectivity();
             }
             return null;
@@ -170,6 +199,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         catch (Throwable ex) 
         {
             post.abort();
+            app.ungetNewLogEntries(logEntries);
             app.logError("Unexpected error while contacting server", ex, true);
             return null;
         }        
