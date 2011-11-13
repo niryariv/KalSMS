@@ -155,6 +155,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
             String signature = getSignature();            
             
             post.setHeader("X-Request-Signature", signature);
+            post.setHeader("User-Agent", "EnvayaSMS/" + app.getPackageInfo().versionName);
             
             HttpResponse response = client.execute(post);            
 
