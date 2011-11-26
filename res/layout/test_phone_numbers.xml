@@ -8,7 +8,7 @@
    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:padding="10sp"
-    android:text="@string/test_senders">                           
+    android:text="@string/test_phone_numbers">                           
    </TextView>                       
    
    <ListView android:id="@android:id/list"
@@ -17,12 +17,12 @@
                android:layout_weight="1" />
 
     <Button
-        android:id="@+id/add_test_phone_number"
+        android:id="@+id/add_phone_number"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="10dp"
-        android:onClick="addTestSender"
-        android:text="Add Test Sender" />               
+        android:onClick="addTestPhoneNumber"
+        android:text="Add Test Phone Number" />               
 
 </LinearLayout>
   

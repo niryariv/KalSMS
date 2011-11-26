@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:background="#333333">
+        
+   <TextView
+       android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="10sp"
+        android:text="@string/ignored_phone_numbers">                           
+   </TextView>                       
+    <CheckBox android:id="@+id/ignore_shortcodes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:onClick="ignoreShortcodesClicked"
+        android:text="Ignore all shortcodes"
+    />
+    <CheckBox android:id="@+id/ignore_non_numeric"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:onClick="ignoreNonNumericClicked"
+        android:text="Ignore all non-numeric senders"
+    />    
+   <ListView android:id="@android:id/list"
+               android:layout_width="fill_parent"
+               android:layout_height="fill_parent"
+               android:layout_weight="1" />
+    <Button
+        android:id="@+id/add_phone_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:onClick="addIgnoredPhoneNumber"
+        android:text="Add Ignored Phone Number" />               
+
+</LinearLayout>
+  

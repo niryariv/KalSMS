@@ -44,7 +44,7 @@ public class CheckMmsInboxService extends IntentService
                 mmsUtils.markOldMms(mms);                 
 
                 if (mms.isForwardable())
-                {                
+                {
                     app.inbox.forwardMessage(mms);                                    
                 }
                 else

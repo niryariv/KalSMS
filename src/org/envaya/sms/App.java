@@ -430,6 +430,16 @@ public final class App extends Application {
     {
         return settings.getBoolean("keep_in_inbox", false);        
     }
+    
+    public boolean ignoreShortcodes()
+    {
+        return settings.getBoolean("ignore_shortcodes", true);
+    }
+    
+    public boolean ignoreNonNumeric()
+    {
+        return settings.getBoolean("ignore_non_numeric", true);
+    }
 
     public String getPassword() {
         return settings.getString("password", "");
@@ -551,70 +561,134 @@ public final class App extends Application {
         return mmsUtils;
     }
     
-    private List<String> testPhoneNumbers;
-    
-    public List<String> getTestPhoneNumbers()
-    {        
+    private List<String> testPhoneNumbers;    
+    public synchronized List<String> getTestPhoneNumbers()
+    {
         if (testPhoneNumbers == null)
         {          
-            testPhoneNumbers = new ArrayList<String>();
-            String phoneNumbersJson = settings.getString("test_phone_numbers", "");
-            
-            if (phoneNumbersJson.length() > 0)
-            {
-                try
-                {                                
-                    JSONArray arr = new JSONArray(phoneNumbersJson);
-                    int numSenders = arr.length();
-                    for (int i = 0; i < numSenders; i++)
-                    {                    
-                        testPhoneNumbers.add(arr.getString(i));                    
-                    }
-                }
-                catch (JSONException ex)
-                {
-                    logError("Error parsing test phone numbers", ex);
-                }            
-            }
+            testPhoneNumbers = loadStringListSetting("test_phone_numbers");
         }
         return testPhoneNumbers;
     }
     
-    public void addTestPhoneNumber(String phoneNumber)
+    public synchronized void addTestPhoneNumber(String phoneNumber)
     {
         List<String> phoneNumbers = getTestPhoneNumbers();
         log("Added test phone number: " + phoneNumber);
         phoneNumbers.add(phoneNumber);
-        saveTestPhoneNumbers(phoneNumbers);
+        saveStringListSetting("test_phone_numbers", phoneNumbers);
     }
     
-    public void removeTestPhoneNumber(String phoneNumber)
+    public synchronized void removeTestPhoneNumber(String phoneNumber)
     {
         List<String> phoneNumbers = getTestPhoneNumbers();
         phoneNumbers.remove(phoneNumber);
         log("Removed test phone number: " + phoneNumber);
-        saveTestPhoneNumbers(phoneNumbers);
+        saveStringListSetting("test_phone_numbers", phoneNumbers);
     }
     
-    private void saveTestPhoneNumbers(List<String> phoneNumbers)
+    private List<String> ignoredPhoneNumbers;    
+    public synchronized List<String> getIgnoredPhoneNumbers()
     {
-        settings.edit().putString("test_phone_numbers", 
-            new JSONArray(phoneNumbers).toString()
+        if (ignoredPhoneNumbers == null)
+        {          
+            ignoredPhoneNumbers = loadStringListSetting("ignored_phone_numbers");
+        }
+        return ignoredPhoneNumbers;
+    }
+    
+    public synchronized void addIgnoredPhoneNumber(String phoneNumber)
+    {
+        List<String> phoneNumbers = getIgnoredPhoneNumbers();
+        log("Added ignored phone number: " + phoneNumber);
+        phoneNumbers.add(phoneNumber);
+        saveStringListSetting("ignored_phone_numbers", phoneNumbers);
+    }
+    
+    public synchronized void removeIgnoredPhoneNumber(String phoneNumber)
+    {
+        List<String> phoneNumbers = getIgnoredPhoneNumbers();
+        phoneNumbers.remove(phoneNumber);
+        log("Removed ignored phone number: " + phoneNumber);
+        saveStringListSetting("ignored_phone_numbers", phoneNumbers);
+    }    
+    
+    public synchronized  void saveStringListSetting(String key, List<String> values)
+    {
+        settings.edit().putString(key, 
+            new JSONArray(values).toString()
         ).commit();
     }    
     
-    public boolean isTestPhoneNumber(String phoneNumber)
-    {            
-        for (String testNumber : getTestPhoneNumbers())
+    public synchronized void saveBooleanSetting(String key, boolean value)
+    {
+        settings.edit().putBoolean(key, value).commit();
+    }    
+    
+    private List<String> loadStringListSetting(String key)
+    {
+        List<String> values = new ArrayList<String>();
+        String valuesJson = settings.getString(key, "");
+
+        if (valuesJson.length() > 0)
         {
-            // handle inexactness due to various different ways of formatting numbers
-            if (testNumber.contains(phoneNumber) || phoneNumber.contains(testNumber))
+            try
+            {                                
+                JSONArray arr = new JSONArray(valuesJson);
+                int numSenders = arr.length();
+                for (int i = 0; i < numSenders; i++)
+                {                    
+                    values.add(arr.getString(i));                    
+                }
+            }
+            catch (JSONException ex)
             {
-                return true;
+                logError("Error parsing setting " + key, ex);
+            }            
+        }        
+        return values;
+    }
+    
+    public boolean isForwardablePhoneNumber(String phoneNumber)
+    {
+        if (isTestMode())
+        {
+            return getTestPhoneNumbers().contains(phoneNumber);
+        }        
+        
+        if (getIgnoredPhoneNumbers().contains(phoneNumber))
+        {
+            return false;
+        }
+        
+        int numDigits = 0;
+        int length = phoneNumber.length();
+
+        for (int i = 0; i < length; i++)
+        {
+            if (Character.isDigit(phoneNumber.charAt(i)))
+            {
+                numDigits++;
             }
         }        
-        return false;
-    }    
+        
+        if (numDigits == 0)
+        {
+            if (ignoreNonNumeric())
+            {
+                return false;
+            }
+        }
+        else if (numDigits < 7)
+        {
+            if (ignoreShortcodes())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
     
     private HttpClient httpClient;
     

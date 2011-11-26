@@ -143,12 +143,12 @@ public class Outbox {
             return;
         }        
         
-        if (app.isTestMode() && !app.isTestPhoneNumber(to))
+        if (!app.isForwardablePhoneNumber(to))
         {
             // this is mostly to prevent accidentally sending real messages to
-            // random people while testing...        
+            // random people while testing...
             notifyMessageStatus(sms, App.STATUS_FAILED,
-                    "Destination number is not in list of test senders");
+                    "Destination address is not allowed");
             return;
         }
         
