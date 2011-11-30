@@ -99,6 +99,7 @@ public final class App extends Application {
     public static final int LOG_TIMESTAMP_INTERVAL = 60000; // ms
     
     public static final int HTTP_CONNECTION_TIMEOUT = 10000; // ms
+    public static final int HTTP_SOCKET_TIMEOUT = 60000; // ms
     
     // Each QueuedMessage is identified within our internal Map by its Uri.
     // Currently QueuedMessage instances are only available within EnvayaSMS,
@@ -353,14 +354,37 @@ public final class App extends Application {
                 extras);
     }
     
-    public void checkOutgoingMessages() 
+    private boolean pollActive = false;
+    private boolean requestedPoll = false;
+    
+    public synchronized void markPollComplete()
     {
-        String serverUrl = getServerUrl();
-        if (serverUrl.length() > 0) {
-            log("Checking for outgoing messages");
-            new PollerTask(this).execute();
-        } else {
-            log("Can't check outgoing messages; server URL not set");
+        pollActive = false;
+        
+        if (requestedPoll)
+        {
+            requestedPoll = false;
+            checkOutgoingMessages();
+        }
+    }
+    
+    public synchronized void checkOutgoingMessages() 
+    {
+        if (!pollActive)
+        {
+            String serverUrl = getServerUrl();
+            if (serverUrl.length() > 0) {
+                log("Checking for outgoing messages");
+                pollActive = true;
+                new PollerTask(this).execute();
+            } else {
+                log("Can't check outgoing messages; server URL not set");
+            }
+        }
+        else
+        {
+            debug("Waiting for server response...");
+            requestedPoll = true;
         }
     }
 
@@ -696,7 +720,7 @@ public final class App extends Application {
     {
         HttpParams httpParams = new BasicHttpParams();
         HttpConnectionParams.setConnectionTimeout(httpParams, HTTP_CONNECTION_TIMEOUT);
-        HttpConnectionParams.setSoTimeout(httpParams, HTTP_CONNECTION_TIMEOUT);                    
+        HttpConnectionParams.setSoTimeout(httpParams, HTTP_SOCKET_TIMEOUT);                    
         HttpProtocolParams.setContentCharset(httpParams, "UTF-8");            
         return httpParams;
     }

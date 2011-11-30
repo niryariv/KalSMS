@@ -13,6 +13,12 @@ public class PollerTask extends HttpTask {
     }
 
     @Override
+    protected void onPostExecute(HttpResponse response) {
+        super.onPostExecute(response);
+        app.markPollComplete();
+    }
+    
+    @Override
     protected void handleResponse(HttpResponse response) throws Exception {
         for (OutgoingMessage reply : parseResponseXML(response)) {
             app.outbox.sendMessage(reply);

@@ -2,6 +2,7 @@
 <resources>
    
     <string-array name="check_intervals">
+        <item>5 sec</item>
         <item>15 sec</item>
         <item>30 sec</item>
         <item>1 minute</item>
@@ -14,6 +15,7 @@
     </string-array>
     
     <string-array name="check_intervals_values">
+        <item>5</item>
         <item>15</item>
         <item>30</item>
         <item>60</item>

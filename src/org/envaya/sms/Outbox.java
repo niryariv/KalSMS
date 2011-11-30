@@ -11,17 +11,27 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.Set;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
 import org.envaya.sms.task.HttpTask;
 
 public class Outbox {
     private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
-
+    
     private App app;   
 
+    // keep track of some recent message URIs to avoid sending duplicate messages
+    // (e.g. if send_status HTTP request fails for some reason)
+    public static final int MAX_RECENT_URIS = 100;    
+    private Set<Uri> recentSentMessageUris = new HashSet<Uri>();
+    private Queue<Uri> recentSentMessageUriOrder = new LinkedList<Uri>();
+        
     // number of outgoing messages that are currently being sent and waiting for
     // messageSent or messageFailed to be called
     private int numSendingOutgoingMessages = 0;
@@ -108,12 +118,33 @@ public class Outbox {
         
         notifyMessageStatus(sms, App.STATUS_SENT, "");
         
-        outgoingMessages.remove(sms.getUri());
+        Uri uri = sms.getUri();
+        
+        outgoingMessages.remove(uri);
+        
+        addRecentSentMessage(sms);
         
         notifyChanged();
         
         numSendingOutgoingMessages--;
         maybeDequeueMessage();
+    }
+    
+    private synchronized void addRecentSentMessage(OutgoingMessage sms)
+    {        
+        if (sms.getServerId() != null)
+        {
+            Uri uri = sms.getUri();
+            
+            recentSentMessageUris.add(uri);            
+            recentSentMessageUriOrder.add(uri);
+            
+            if (recentSentMessageUriOrder.size() > MAX_RECENT_URIS)
+            {
+                Uri oldUri = recentSentMessageUriOrder.remove();
+                recentSentMessageUris.remove(oldUri);
+            }
+        }
     }
     
     public synchronized void messageFailed(OutgoingMessage sms, String error)
@@ -164,6 +195,13 @@ public class Outbox {
         Uri uri = sms.getUri();
         if (outgoingMessages.containsKey(uri)) {
             app.debug("Duplicate outgoing " + sms.getLogName() + ", skipping");
+            return;
+        }
+        
+        if (recentSentMessageUris.contains(uri))
+        {
+            app.debug("Outgoing " + sms.getLogName() + " already sent, re-notifying server");   
+            notifyMessageStatus(sms, App.STATUS_SENT, "");
             return;
         }
 
