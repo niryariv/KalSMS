@@ -14,11 +14,13 @@ $phone_number = $request->phone_number;
 
 $password = @$PASSWORDS[$phone_number];
 
+header("Content-Type: text/xml");
+
 if (!isset($password) || !$request->is_validated($password))
 {
     header("HTTP/1.1 403 Forbidden");
-    error_log("Invalid request signature");
-    echo "Invalid request signature";
+    error_log("Invalid request signature");    
+    echo EnvayaSMS::get_error_xml("Invalid request signature");
     return;
 }
 
@@ -37,14 +39,30 @@ $action = $request->get_action();
 switch ($action->type)
 {
     case EnvayaSMS::ACTION_INCOMING:    
-        error_log("Received SMS from {$action->from}");
+        $type = strtoupper($action->message_type);
+    
+        error_log("Received $type from {$action->from}");
+        error_log(" message: {$action->message}");
+
+        if ($action->message_type == EnvayaSMS::MESSAGE_TYPE_MMS)
+        {
+            foreach ($action->mms_parts as $mms_part)
+            {                
+                $ext_map = array('image/jpeg' => 'jpg', 'image/gif' => 'gif', 'text/plain' => 'txt', 'application/smil' => 'smil');
+                $ext = @$ext_map[$mms_part->type] ?: "unk";
+                
+                $filename = "mms_parts/" . uniqid('mms') . ".$ext";
+                
+                copy($mms_part->tmp_name, dirname(__DIR__)."/$filename");
+                error_log(" mms part type {$mms_part->type} saved to {$filename}");
+            }
+        }                       
         
         $reply = new EnvayaSMS_OutgoingMessage();
         $reply->message = "You said: {$action->message}";
     
         error_log("Sending reply: {$reply->message}");
     
-        header("Content-Type: text/xml");
         echo $action->get_response_xml(array($reply));
         return;
         
@@ -70,7 +88,6 @@ switch ($action->type)
         }
         closedir($dir);
         
-        header("Content-Type: text/xml");
         echo $action->get_response_xml($messages);
         return;
         
@@ -81,23 +98,23 @@ switch ($action->type)
         // delete file with matching id    
         if (preg_match('#^\w+$#', $id) && unlink("$OUTGOING_DIR_NAME/$id.json"))
         {
-            echo "OK";            
+            echo EnvayaSMS::get_success_xml();
         }       
         else
         {
             header("HTTP/1.1 404 Not Found");
-            echo "invalid id";            
+            echo EnvayaSMS::get_error_xml("Invalid id");
         }   
         return;
     case EnvayaSMS::ACTION_DEVICE_STATUS:
         error_log("device_status = {$action->status}");
-        echo "OK";
+        echo EnvayaSMS::get_success_xml();
         return;        
     case EnvayaSMS::ACTION_TEST:
-        echo "OK";
+        echo EnvayaSMS::get_success_xml();
         return;        
     default:
         header("HTTP/1.1 404 Not Found");
-        echo "Invalid action";
+        echo EnvayaSMS::get_error_xml("Invalid action");
         return;
 }

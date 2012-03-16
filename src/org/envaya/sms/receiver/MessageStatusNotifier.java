@@ -35,8 +35,8 @@ public class MessageStatusNotifier extends BroadcastReceiver {
         {
             // TODO: process message status for parts other than the first one
             return;
-        }
-            
+        }            
+        
         int resultCode = getResultCode();
         
         /*

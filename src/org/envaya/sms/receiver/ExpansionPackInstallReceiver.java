@@ -12,11 +12,16 @@ public class ExpansionPackInstallReceiver extends BroadcastReceiver
     {        
         App app = (App) context.getApplicationContext();        
         
+        String action = intent.getAction();
+        
         String packageName = intent.getData().getSchemeSpecificPart();
         
-        if (packageName != null && packageName.startsWith(context.getPackageName() + ".pack"))
+        if (packageName != null)
         {
-            app.updateExpansionPacks();
+            if (packageName.startsWith(context.getPackageName() + ".pack"))
+            {            
+                app.updateExpansionPacks(); 
+            }
         }
     }        
 }    

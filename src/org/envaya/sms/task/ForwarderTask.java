@@ -2,7 +2,6 @@ package org.envaya.sms.task;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
-import org.envaya.sms.App;
 import org.envaya.sms.IncomingMessage;
 import org.envaya.sms.OutgoingMessage;
 
@@ -12,11 +11,13 @@ public class ForwarderTask extends HttpTask {
 
     public ForwarderTask(IncomingMessage message, BasicNameValuePair... paramsArr) {
         super(message.app, paramsArr);
-        this.message = message;
-                
-        params.add(new BasicNameValuePair("action", App.ACTION_INCOMING));
-        params.add(new BasicNameValuePair("from", message.getFrom()));
-        params.add(new BasicNameValuePair("timestamp", "" + message.getTimestamp()));
+        this.message = message;                
+    }
+    
+    @Override
+    public boolean isValidContentType(String contentType)
+    {
+        return contentType.startsWith("text/xml");
     }
     
     @Override
@@ -31,10 +32,12 @@ public class ForwarderTask extends HttpTask {
             app.outbox.sendMessage(reply);
         }
         app.inbox.messageForwarded(message);
+        
+        super.handleResponse(response);
     }
 
     @Override
-    protected void handleFailure() {
+    protected void handleFailure() {        
         app.inbox.messageFailed(message);
     }
 }

@@ -13,6 +13,12 @@ public class PollerTask extends HttpTask {
     }
 
     @Override
+    public boolean isValidContentType(String contentType)
+    {
+        return contentType.startsWith("text/xml");
+    }    
+    
+    @Override
     protected void onPostExecute(HttpResponse response) {
         super.onPostExecute(response);
         app.markPollComplete();

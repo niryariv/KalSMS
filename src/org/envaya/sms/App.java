@@ -14,14 +14,15 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
-import java.io.IOException;
-import java.net.InetAddress;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -42,9 +43,10 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.envaya.sms.receiver.OutgoingMessagePoller;
-import org.envaya.sms.receiver.ReenableWifiReceiver;
+import org.envaya.sms.task.CheckConnectivityTask;
 import org.envaya.sms.task.HttpTask;
 import org.envaya.sms.task.PollerTask;
+import org.apache.http.message.BasicNameValuePair;
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -59,14 +61,17 @@ public final class App extends Application {
     public static final String STATUS_QUEUED = "queued";
     public static final String STATUS_FAILED = "failed";
     public static final String STATUS_SENT = "sent";
+    public static final String STATUS_CANCELLED = "cancelled";
     
     public static final String DEVICE_STATUS_POWER_CONNECTED = "power_connected";
     public static final String DEVICE_STATUS_POWER_DISCONNECTED = "power_disconnected";
     public static final String DEVICE_STATUS_BATTERY_LOW = "battery_low";
     public static final String DEVICE_STATUS_BATTERY_OKAY = "battery_okay";
+    public static final String DEVICE_STATUS_SEND_LIMIT_EXCEEDED = "send_limit_exceeded";
     
     public static final String MESSAGE_TYPE_MMS = "mms";
     public static final String MESSAGE_TYPE_SMS = "sms";
+    public static final String MESSAGE_TYPE_CALL = "call";
     
     public static final String LOG_NAME = "EnvayaSMS";
     
@@ -76,9 +81,9 @@ public final class App extends Application {
     // signal to PendingMessages activity (if open) that inbox/outbox has changed
     public static final String INBOX_CHANGED_INTENT = "org.envaya.sms.INBOX_CHANGED";
     public static final String OUTBOX_CHANGED_INTENT = "org.envaya.sms.OUTBOX_CHANGED";
-                
+                    
     public static final String QUERY_EXPANSION_PACKS_INTENT = "org.envaya.sms.QUERY_EXPANSION_PACKS";
-    public static final String QUERY_EXPANSION_PACKS_EXTRA_PACKAGES = "packages";
+    public static final String QUERY_EXPANSION_PACKS_EXTRA_PACKAGES = "packages";    
     
     // Interface for sending outgoing messages to expansion packs
     public static final String OUTGOING_SMS_INTENT_SUFFIX = ".OUTGOING_SMS";    
@@ -96,10 +101,12 @@ public final class App extends Application {
     public static final String STATUS_EXTRA_NUM_PARTS = "num_parts";            
     
     public static final int MAX_DISPLAYED_LOG = 8000;
-    public static final int LOG_TIMESTAMP_INTERVAL = 60000; // ms
+    public static final int LOG_TIMESTAMP_INTERVAL = 30000; //60000; // ms
     
     public static final int HTTP_CONNECTION_TIMEOUT = 10000; // ms
     public static final int HTTP_SOCKET_TIMEOUT = 60000; // ms
+    
+    public static final int MESSAGE_SEND_TIMEOUT = 30000; // ms
     
     // Each QueuedMessage is identified within our internal Map by its Uri.
     // Currently QueuedMessage instances are only available within EnvayaSMS,
@@ -113,7 +120,7 @@ public final class App extends Application {
     public static final int DISABLE_WIFI_INTERVAL = 3600000; 
     
     // how often we can automatically failover between wifi/mobile connection
-    public static final int CONNECTIVITY_FAILOVER_INTERVAL = 1800000;
+    public static final int CONNECTIVITY_FAILOVER_INTERVAL = 900000;
     
     // max per-app outgoing SMS rate used by com.android.internal.telephony.SMSDispatcher
     // with a slightly longer check period to account for variance in the time difference
@@ -145,7 +152,10 @@ public final class App extends Application {
     private int outgoingMessageCount = -1;
     
     private MmsUtils mmsUtils;
+    private CallListener callListener;    
     
+    private boolean connectivityError = false;
+        
     @Override
     public void onCreate()
     {
@@ -153,6 +163,8 @@ public final class App extends Application {
         
         settings = PreferenceManager.getDefaultSharedPreferences(this);        
         mmsUtils = new MmsUtils(this);
+        
+        callListener = new CallListener(this);  
         
         outgoingMessagePackages.add(getPackageName());
         
@@ -170,39 +182,87 @@ public final class App extends Application {
         }              
         
         updateExpansionPacks();
-        
+        configuredChanged();        
+    }   
+    
+    public void configuredChanged()
+    {
         log(Html.fromHtml(
-            isEnabled() ? "<b>SMS gateway running.</b>" : "<b>SMS gateway disabled.</b>"));
+            isEnabled() ? "<b>SMS gateway running ("+getDisplayString(getPhoneNumber())+").</b>" 
+                : "<b>SMS gateway disabled.</b>"));
 
-        log("Server URL is: " + getDisplayString(getServerUrl()));
-        log("Your phone number is: " + getDisplayString(getPhoneNumber()));        
-                
+        log("Server URL: " + getDisplayString(getServerUrl()));
+        log("Keep new messages: " + (getKeepInInbox() ? "YES": "NO"));
+        log("Call notifications: " + (callNotificationsEnabled() ? "ON": "OFF"));
+        log("Network failover: " + (isNetworkFailoverEnabled() ? "ON": "OFF"));
+
+        boolean ignoreShortcodes = ignoreShortcodes();
+        boolean ignoreNonNumeric = ignoreNonNumeric();            
+        List<String> ignoredNumbers = getIgnoredPhoneNumbers();
+
+        if (ignoredNumbers.size() > 0 || ignoreShortcodes || ignoreNonNumeric)
+        {
+            log("Ignored phone numbers:");            
+
+            if (ignoreShortcodes || ignoreNonNumeric)
+            {
+                String ignoreDesc = "  ";
+                if (ignoreShortcodes)
+                {
+                    ignoreDesc += "all shortcodes";
+                }
+
+                if (ignoreShortcodes && ignoreNonNumeric)
+                {
+                    ignoreDesc += ", ";
+                }
+
+                if (ignoreNonNumeric)
+                {
+                    ignoreDesc += "all non-numeric";
+                }
+                log(ignoreDesc);
+            }
+
+            for (String sender : ignoredNumbers)
+            {
+                log("  " + sender);
+            }
+        }
+
         if (isTestMode())
         {
-            log("Test mode is ON");
+            log("Test mode: ON");
             log("Test phone numbers:");
-            
+
             for (String sender : getTestPhoneNumbers())
             {
                 log("  " + sender);
             }
         }                          
-                
+
+        log(Html.fromHtml("<b>To change these settings, click Menu, then Settings.</b>"));
+
         enabledChanged();
-        
-        log(Html.fromHtml("<b>Press Menu to edit settings.</b>"));
-    }   
+    }
     
     public void enabledChanged()
     {        
+        TelephonyManager telephony = (TelephonyManager)   
+            getSystemService(Context.TELEPHONY_SERVICE);                  
+        
         if (isEnabled())
         {
-            mmsObserver.register();   
+            mmsObserver.register();  
+            
+            telephony.listen(callListener, PhoneStateListener.LISTEN_CALL_STATE);          
         }
         else
         {
             mmsObserver.unregister();
-        }        
+            
+            telephony.listen(callListener, PhoneStateListener.LISTEN_NONE);
+        }                
         
         setOutgoingMessageAlarm();
         startService(new Intent(this, ForegroundService.class));        
@@ -259,6 +319,13 @@ public final class App extends Application {
             + getOutgoingMessageLimit() + " in 1 hour reached");
         log("To increase this limit, install an expansion pack.");
                 
+        HttpTask task = new HttpTask(this, 
+            new BasicNameValuePair("action", App.ACTION_DEVICE_STATUS),
+            new BasicNameValuePair("status", App.DEVICE_STATUS_SEND_LIMIT_EXCEEDED)
+        );        
+        task.setRetryOnConnectivityError(true);
+        task.execute();
+        
         return null;
     }    
 
@@ -338,13 +405,14 @@ public final class App extends Application {
         
         sendOrderedBroadcast(
                 new Intent(App.QUERY_EXPANSION_PACKS_INTENT), 
-                "android.permission.SEND_SMS",
+                null,
                 new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent resultIntent) {
                         
-                        setExpansionPacks(this.getResultExtras(false)
-                            .getStringArrayList(App.QUERY_EXPANSION_PACKS_EXTRA_PACKAGES));
+                        Bundle extras = this.getResultExtras(false);
+                        
+                        setExpansionPacks(extras.getStringArrayList(App.QUERY_EXPANSION_PACKS_EXTRA_PACKAGES));
                         
                     }
                 }, 
@@ -375,7 +443,7 @@ public final class App extends Application {
             String serverUrl = getServerUrl();
             if (serverUrl.length() > 0) {
                 log("Checking for outgoing messages");
-                pollActive = true;
+                pollActive = true;                
                 new PollerTask(this).execute();
             } else {
                 log("Can't check outgoing messages; server URL not set");
@@ -402,7 +470,7 @@ public final class App extends Application {
 
         if (isEnabled())
         {        
-            if (pollSeconds > 0) {
+            if (pollSeconds > 0) {                                
                 alarm.setRepeating(
                         AlarmManager.ELAPSED_REALTIME_WAKEUP,
                         SystemClock.elapsedRealtime(),
@@ -411,7 +479,7 @@ public final class App extends Application {
                 log("Checking for outgoing messages every " + pollSeconds + " sec");
             } else {
                 log("Not checking for outgoing messages.");
-            }
+            }                        
         }
     }
 
@@ -422,47 +490,64 @@ public final class App extends Application {
             return str;
         }
     }
-
+    
+    public boolean callNotificationsEnabled()
+    {
+        return tryGetBooleanSetting("call_notifications", false);
+    }
+    
     public String getServerUrl() {
         return settings.getString("server_url", "");
     }
-
+    
     public String getPhoneNumber() {
         return settings.getString("phone_number", "");
     }
-
+    
     public int getOutgoingPollSeconds() {
         return Integer.parseInt(settings.getString("outgoing_interval", "0"));
     }
 
     public boolean isEnabled()
     {
-        return settings.getBoolean("enabled", false);
+        return tryGetBooleanSetting("enabled", false);
+    }
+    
+    public boolean tryGetBooleanSetting(String name, boolean defaultValue)
+    {
+        try
+        {
+            return settings.getBoolean(name, defaultValue);
+        }
+        catch (Exception ex)
+        {
+            return defaultValue;
+        }
     }
     
     public boolean isNetworkFailoverEnabled()
     {
-        return settings.getBoolean("network_failover", false);
+        return tryGetBooleanSetting("network_failover", false);
     }
     
     public boolean isTestMode()
     {
-        return settings.getBoolean("test_mode", false);
-    }
+        return tryGetBooleanSetting("test_mode", false);
+    }    
     
     public boolean getKeepInInbox() 
     {
-        return settings.getBoolean("keep_in_inbox", false);        
+        return tryGetBooleanSetting("keep_in_inbox", false);        
     }
     
     public boolean ignoreShortcodes()
     {
-        return settings.getBoolean("ignore_shortcodes", true);
+        return tryGetBooleanSetting("ignore_shortcodes", true);
     }
     
     public boolean ignoreNonNumeric()
     {
-        return settings.getBoolean("ignore_non_numeric", true);
+        return tryGetBooleanSetting("ignore_non_numeric", true);
     }
 
     public String getPassword() {
@@ -644,6 +729,11 @@ public final class App extends Application {
         ).commit();
     }    
     
+    public synchronized void saveStringSetting(String key, String value)
+    {
+        settings.edit().putString(key, value).commit();
+    }        
+    
     public synchronized void saveBooleanSetting(String key, boolean value)
     {
         settings.edit().putBoolean(key, value).commit();
@@ -761,21 +851,21 @@ public final class App extends Application {
         
         public synchronized boolean canCheck()
         {
-            long time = SystemClock.elapsedRealtime();                
+            long time = System.currentTimeMillis();                
             return (time - lastCheckTime >= App.CONNECTIVITY_FAILOVER_INTERVAL);
         }                    
         
         public void setChecked()
         {
-            lastCheckTime = SystemClock.elapsedRealtime();
+            lastCheckTime = System.currentTimeMillis();
         }
     }
     
     private Map<Integer,ConnectivityCheckState> connectivityCheckStates
         = new HashMap<Integer, ConnectivityCheckState>();
-        
-    private Thread connectivityThread;    
-        
+    
+    private CheckConnectivityTask checkConnectivityTask;
+    
     /*
      * Normally we rely on Android to automatically switch between 
      * mobile data and Wi-Fi, but if the phone is connected to a Wi-Fi router
@@ -820,7 +910,7 @@ public final class App extends Application {
             return;
         }
         
-        final int networkType = activeNetwork.getType();                
+        final int networkType = activeNetwork.getType();
         
         ConnectivityCheckState state = 
             connectivityCheckStates.get(networkType);
@@ -832,79 +922,20 @@ public final class App extends Application {
         }
 
         if (!state.canCheck()
-            || (connectivityThread != null && connectivityThread.isAlive()))
+            || (checkConnectivityTask != null && checkConnectivityTask.getStatus() != AsyncTask.Status.FINISHED))
         {
             return;
         }
         
         state.setChecked();
         
-        connectivityThread = new Thread() {
-            @Override
-            public void run()
-            {
-                Uri serverUrl = Uri.parse(getServerUrl());
-                String hostName = serverUrl.getHost();
+        Uri serverUrl = Uri.parse(getServerUrl());
+        String hostName = serverUrl.getHost();
 
-                log("Checking connectivity to "+hostName+"...");
-
-                try
-                {
-                    InetAddress addr = InetAddress.getByName(hostName);
-                    if (addr.isReachable(App.HTTP_CONNECTION_TIMEOUT))
-                    {
-                        log("OK");                        
-                        onConnectivityRestored();
-                        return;
-                    }
-                }
-                catch (IOException ex)
-                {
-                    // just what we suspected... 
-                    // server not reachable on this interface
-                }
-                
-                log("Can't connect to "+hostName+".");
-                
-                WifiManager wmgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-                
-                if (!isNetworkFailoverEnabled())
-                {
-                    log("Network failover disabled.");
-                }
-                else if (networkType == ConnectivityManager.TYPE_WIFI)
-                {
-                    log("Switching from WIFI to MOBILE");                
-
-                    PendingIntent pendingIntent = PendingIntent.getBroadcast(App.this,
-                        0,
-                        new Intent(App.this, ReenableWifiReceiver.class),
-                        0);
-
-                    // set an alarm to try restoring Wi-Fi in a little while
-                    AlarmManager alarm = 
-                        (AlarmManager)getSystemService(Context.ALARM_SERVICE);
-
-                    alarm.set(
-                        AlarmManager.ELAPSED_REALTIME_WAKEUP,                        
-                        SystemClock.elapsedRealtime() + App.DISABLE_WIFI_INTERVAL,
-                        pendingIntent);   
-
-                    wmgr.setWifiEnabled(false);
-                }
-                else if (networkType == ConnectivityManager.TYPE_MOBILE 
-                        && !wmgr.isWifiEnabled())
-                {
-                    log("Switching from MOBILE to WIFI");
-                    wmgr.setWifiEnabled(true);                    
-                }
-                else
-                {
-                    log("Can't automatically fix connectivity.");
-                }     
-            }
-        };
-        connectivityThread.start();
+        log("Checking connectivity to "+hostName+"...");
+        
+        checkConnectivityTask = new CheckConnectivityTask(this, hostName, networkType);
+        checkConnectivityTask.execute();
     }
     
     private int activeNetworkType = -1;
@@ -933,8 +964,21 @@ public final class App extends Application {
         asyncCheckConnectivity();
     }
     
-    private void onConnectivityRestored()
+    public boolean hasConnectivityError()
     {
+        return connectivityError;
+    }
+    
+    public synchronized void onConnectivityError()
+    {
+        connectivityError = true;
+        asyncCheckConnectivity();        
+    }
+    
+    public synchronized void onConnectivityRestored()
+    {
+        connectivityError = false;
+        
         inbox.retryAll();
         
         if (getOutgoingPollSeconds() > 0)
@@ -963,5 +1007,5 @@ public final class App extends Application {
     public synchronized void addQueuedTask(HttpTask task)
     {
         queuedTasks.add(task);
-    }
+    }    
 }

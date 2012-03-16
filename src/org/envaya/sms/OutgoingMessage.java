@@ -1,12 +1,16 @@
 
 package org.envaya.sms;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import org.envaya.sms.receiver.OutgoingMessageRetry;
 import android.content.Intent;
 import android.net.Uri;
-import java.util.ArrayList;
+import android.os.SystemClock;
+import org.envaya.sms.receiver.OutgoingMessageTimeout;
 
-public class OutgoingMessage extends QueuedMessage {
+public abstract class OutgoingMessage extends QueuedMessage {
     
     private String serverId;    
     private String message;
@@ -18,6 +22,12 @@ public class OutgoingMessage extends QueuedMessage {
     
     private ProcessingState state = ProcessingState.None;
         
+    public class ScheduleInfo
+    {
+        public boolean now = false;
+        public long time = 0;
+    }
+    
     public enum ProcessingState
     {
         None,           // not doing anything with this sms now... just sitting around
@@ -43,6 +53,13 @@ public class OutgoingMessage extends QueuedMessage {
         this.state = status;
     }
     
+    public boolean isCancelable()
+    {
+        return this.state == ProcessingState.None 
+                || this.state == ProcessingState.Queued
+                || this.state == ProcessingState.Scheduled;
+    }
+    
     static synchronized int getNextLocalId()
     {
         return nextLocalId++;
@@ -59,10 +76,10 @@ public class OutgoingMessage extends QueuedMessage {
                 ("_o" + localId) : serverId));
     }
     
-    public String getLogName()
+    public static Uri getUriForServerId(String serverId)
     {
-        return (serverId == null) ? "SMS reply" : ("SMS id=" + serverId);
-    }
+        return Uri.withAppendedPath(App.OUTGOING_URI, serverId);
+    }    
     
     public String getServerId()
     {
@@ -112,32 +129,7 @@ public class OutgoingMessage extends QueuedMessage {
     public int getPriority()
     {
         return priority;
-    }
-    
-    public void trySend(ArrayList<String> bodyParts, String packageName)
-    {
-        if (numRetries == 0)
-        {
-            app.log("Sending " + getLogName() + " to " + getTo());
-        }
-        else
-        {        
-            app.log("Retrying sending " + getLogName() + " to " + getTo());
-        }
-                
-        int numParts = bodyParts.size();
-        if (numParts > 1)
-        {
-            app.log("(Multipart message with "+numParts+" parts)");
-        }        
-
-        Intent intent = new Intent(packageName + App.OUTGOING_SMS_INTENT_SUFFIX, this.getUri());
-        intent.putExtra(App.OUTGOING_SMS_EXTRA_DELIVERY_REPORT, false);
-        intent.putExtra(App.OUTGOING_SMS_EXTRA_TO, getTo());
-        intent.putExtra(App.OUTGOING_SMS_EXTRA_BODY, bodyParts);
-        
-        app.sendBroadcast(intent, "android.permission.SEND_SMS");
-    }
+    }    
 
     protected Intent getRetryIntent() {
         Intent intent = new Intent(app, OutgoingMessageRetry.class);
@@ -165,8 +157,42 @@ public class OutgoingMessage extends QueuedMessage {
         return getDisplayType() + " to " + getTo();
     }
     
-    public String getDisplayType()
+    abstract String getLogName();
+    
+    public void validate() throws ValidationException
     {
-        return "SMS";
+    }
+    
+    abstract ScheduleInfo scheduleSend();
+    abstract void send(ScheduleInfo schedule);
+
+    protected PendingIntent getTimeoutPendingIntent()
+    {
+        Intent timeout = new Intent(app, OutgoingMessageTimeout.class);
+        timeout.setData(getUri());
+        
+        return PendingIntent.getBroadcast(app,
+            0,
+            timeout,
+            0);
+    }
+    
+    public void setSendTimeout()
+    {
+        AlarmManager alarm = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+
+        PendingIntent timeoutIntent = getTimeoutPendingIntent();
+
+        alarm.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, 
+                SystemClock.elapsedRealtime() + App.MESSAGE_SEND_TIMEOUT, timeoutIntent);
+    }
+    
+    public void clearSendTimeout()
+    {
+        AlarmManager alarm = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+
+        PendingIntent timeoutIntent = getTimeoutPendingIntent();
+
+        alarm.cancel(timeoutIntent);
     }
 }

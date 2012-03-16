@@ -1,12 +1,18 @@
 package org.envaya.sms;
 
 import android.content.Intent;
+import android.os.SystemClock;
 import org.envaya.sms.receiver.IncomingMessageRetry;
+import org.envaya.sms.task.ForwarderTask;
+import org.apache.http.message.BasicNameValuePair;
 
 public abstract class IncomingMessage extends QueuedMessage {
 
     protected String from;
+    protected String message = "";
     protected long timestamp; // unix timestamp in milliseconds
+    
+    protected long timeReceived; // SystemClock.elapsedRealtime
     
     private ProcessingState state = ProcessingState.None;
         
@@ -24,6 +30,18 @@ public abstract class IncomingMessage extends QueuedMessage {
         super(app);
         this.from = from;
         this.timestamp = timestamp;
+        
+        this.timeReceived = SystemClock.elapsedRealtime();
+    }
+    
+    public String getMessageBody()
+    {
+        return message;
+    }    
+    
+    public long getAge()
+    {
+        return SystemClock.elapsedRealtime() - timeReceived;
     }
     
     public long getTimestamp()
@@ -77,5 +95,27 @@ public abstract class IncomingMessage extends QueuedMessage {
         return getDisplayType() + " from " + getFrom();
     }
     
-    public abstract void tryForwardToServer();
+    public void tryForwardToServer()
+    {        
+        if (numRetries > 0)
+        {
+            app.log("Retrying forwarding " + getDescription());
+        }
+        
+        getForwarderTask().execute();
+    }
+    
+    public abstract String getMessageType();
+    
+    protected ForwarderTask getForwarderTask()
+    {
+        return new ForwarderTask(this,
+            new BasicNameValuePair("message_type", getMessageType()),
+            new BasicNameValuePair("message", getMessageBody()),
+            new BasicNameValuePair("action", App.ACTION_INCOMING),
+            new BasicNameValuePair("from", getFrom()),
+            new BasicNameValuePair("timestamp", "" + getTimestamp()),
+            new BasicNameValuePair("age", "" + getAge())
+        );
+    }
 }

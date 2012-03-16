@@ -26,7 +26,7 @@ import android.util.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import org.envaya.sms.ui.Main;
+import org.envaya.sms.ui.LogView;
 
 /*
  *  Service running in foreground to make sure App instance stays 
@@ -159,7 +159,7 @@ public class ForegroundService extends Service {
                     System.currentTimeMillis());
 
             PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                    new Intent(this, Main.class), 0);
+                    new Intent(this, LogView.class), 0);
 
             notification.setLatestEventInfo(this, 
                     "EnvayaSMS running",

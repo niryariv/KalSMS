@@ -4,11 +4,7 @@ package org.envaya.sms;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
-import java.io.File;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /*
  * Utilities for parsing IncomingMms from the MMS content provider tables,
@@ -56,9 +52,25 @@ public class MmsUtils
         {
             long partId = cur.getLong(0);
 
-            MmsPart part = new MmsPart(app, partId);
-            part.setContentType(cur.getString(1));
-            part.setName(cur.getString(2));
+            String contentType = cur.getString(1);
+            
+            if (contentType == null)
+            {
+                continue;
+            }
+            
+            MmsPart part = new MmsPart(app, partId);            
+            
+            part.setContentType(contentType);
+            
+            String name = cur.getString(2);
+            
+            if (name == null || name.length() == 0)
+            {
+                name = UUID.randomUUID().toString(); 
+            }
+            
+            part.setName(name);
 
             part.setDataFile(cur.getString(5));
                 
@@ -116,9 +128,17 @@ public class MmsUtils
         {         
             long id = c.getLong(0);                               
             long date = c.getLong(2);
-                        
+            
+            String from = getSenderNumber(id);                        
+            
+            if (from == null)
+            {
+                app.log("Ignoring MMS "+id+" for now because sender number is null");
+                continue;
+            }            
+            
             IncomingMms mms = new IncomingMms(app, 
-                getSenderNumber(id), 
+                from, 
                 date * 1000, // MMS timestamp is in seconds for some reason, 
                              // while everything else is in ms
                 id);

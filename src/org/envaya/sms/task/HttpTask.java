@@ -4,79 +4,57 @@
  */
 package org.envaya.sms.task;
 
-import android.os.AsyncTask;
+import org.envaya.sms.XmlUtils;
+import org.envaya.sms.OutgoingSms;
+import org.envaya.sms.OutgoingMessage;
+import org.envaya.sms.App;
+import org.envaya.sms.Base64Coder;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.preference.PreferenceManager;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.FormBodyPart;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.message.BasicNameValuePair;
-import org.envaya.sms.App;
-import org.envaya.sms.Base64Coder;
-import org.envaya.sms.OutgoingMessage;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
+public class HttpTask extends BaseHttpTask {
 
-    protected App app;
-    
-    protected String url;    
-    protected List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-    
-    protected BasicNameValuePair[] paramsArr;
-
-    private List<FormBodyPart> formParts;
-    private boolean useMultipartPost = false;    
-    
-    private HttpPost post;
     private String logEntries;    
     
     private boolean retryOnConnectivityError;
+    
+    private BasicNameValuePair[] ctorParams;
         
     public HttpTask(App app, BasicNameValuePair... paramsArr)
     {
-        super();
-        this.app = app;                
-        this.paramsArr = paramsArr;        
-        params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));
+        super(app, app.getServerUrl(), paramsArr);
+        this.ctorParams = paramsArr;
     }
     
     public void setRetryOnConnectivityError(boolean retry)
     {
-        this.retryOnConnectivityError = retry;
+        this.retryOnConnectivityError = retry;  // doesn't work with addParam!
     }
     
     protected HttpTask getCopy()
     {
-        return new HttpTask(app, paramsArr);
-    }    
-    
-    public void setFormParts(List<FormBodyPart> formParts)
-    {
-        useMultipartPost = true;
-        this.formParts = formParts;
-    }                 
+        return new HttpTask(app, ctorParams); // doesn't work with addParam!
+    }        
     
     private String getSignature()
             throws NoSuchAlgorithmException, UnsupportedEncodingException
@@ -110,6 +88,7 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         return new String(Base64Coder.encode(digest));            
     }    
     
+    @Override
     protected HttpResponse doInBackground(String... ignored) {        
         url = app.getServerUrl();        
         
@@ -122,181 +101,136 @@ public class HttpTask extends AsyncTask<String, Void, HttpResponse> {
         
         params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
         params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));
-        params.add(new BasicNameValuePair("log", logEntries));        
-                
-        post = new HttpPost(url);        
+        params.add(new BasicNameValuePair("send_limit", "" + app.getOutgoingMessageLimit()));
         
-        try
-        {              
-            if (useMultipartPost)
-            {
-                MultipartEntity entity = new MultipartEntity();//HttpMultipartMode.BROWSER_COMPATIBLE);
-
-                Charset charset = Charset.forName("UTF-8");
-                
-                for (BasicNameValuePair param : params)
-                {
-                    entity.addPart(param.getName(), new StringBody(param.getValue(), charset));
-                }
-                
-                for (FormBodyPart formPart : formParts)
-                {
-                    entity.addPart(formPart);
-                }
-                post.setEntity(entity);                                                
-            }
-            else
-            {
-                post.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));            
-            }
-                        
-            HttpClient client = app.getHttpClient();
-            
-            String signature = getSignature();            
-            
-            post.setHeader("X-Request-Signature", signature);
-            post.setHeader("User-Agent", "EnvayaSMS/" + app.getPackageInfo().versionName);
-            
-            HttpResponse response = client.execute(post);            
-
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode == 200) 
-            {
-                return response;
-            } 
-            else if (statusCode == 403)
-            {
-                response.getEntity().consumeContent();
-                app.ungetNewLogEntries(logEntries);
-                app.log("Failed to authenticate to server");
-                app.log("(Phone number or password may be incorrect)");                
-                return null;
-            }
-            else 
-            {
-                response.getEntity().consumeContent();
-                app.ungetNewLogEntries(logEntries);
-                app.log("Received HTTP " + statusCode + " from server");
-                return null;
-            }
-        } 
-        catch (IOException ex) 
+        ConnectivityManager cm = 
+            (ConnectivityManager)app.getSystemService(App.CONNECTIVITY_SERVICE);
+        
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();        
+        if (activeNetwork != null)
         {
-            post.abort();
-            app.ungetNewLogEntries(logEntries);
-            app.logError("Error while contacting server", ex);
-            
-            if (ex instanceof UnknownHostException || ex instanceof SocketTimeoutException)
-            {
-                if (retryOnConnectivityError)
-                {
-                    app.addQueuedTask(getCopy());
-                }
-                
-                app.asyncCheckConnectivity();
-            }
-            return null;
+            params.add(new BasicNameValuePair("network", "" + activeNetwork.getTypeName()));
         }
-        catch (Throwable ex) 
-        {
-            post.abort();
-            app.ungetNewLogEntries(logEntries);
-            app.logError("Unexpected error while contacting server", ex, true);
-            return null;
-        }        
+        
+        params.add(new BasicNameValuePair("log", logEntries));
+                
+        return super.doInBackground();        
+    }
+    
+    @Override
+    protected HttpPost makeHttpPost()
+            throws Exception
+    {
+        HttpPost httpPost = super.makeHttpPost();
+
+        String signature = getSignature();
+            
+        httpPost.setHeader("X-Request-Signature", signature);
+        
+        return httpPost;   
     }
     
     protected String getDefaultToAddress()
     {
         return "";
     }
-    
+        
     protected List<OutgoingMessage> parseResponseXML(HttpResponse response)
              throws IOException, ParserConfigurationException, SAXException
     {
         List<OutgoingMessage> messages = new ArrayList<OutgoingMessage>();
-        InputStream responseStream = response.getEntity().getContent();
-        DocumentBuilder xmlBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        Document xml = xmlBuilder.parse(responseStream);
+        Document xml = XmlUtils.parseResponse(response);     
 
-        NodeList smsNodes = xml.getElementsByTagName("sms");
-        for (int i = 0; i < smsNodes.getLength(); i++) {
-            Element smsElement = (Element) smsNodes.item(i);
-            
-            OutgoingMessage sms = new OutgoingMessage(app);
-
-            sms.setFrom(app.getPhoneNumber());
-            
-            String to = smsElement.getAttribute("to");
-            
-            sms.setTo(to.equals("") ? getDefaultToAddress() : to);
-            
-            String serverId = smsElement.getAttribute("id");
-            
-            sms.setServerId(serverId.equals("") ? null : serverId);
-            
-            String priorityStr = smsElement.getAttribute("priority");
-            
-            if (!priorityStr.equals(""))
+        Element messagesElement = (Element) xml.getElementsByTagName("messages").item(0);
+        if (messagesElement != null)
+        {
+            NodeList messageNodes = messagesElement.getChildNodes();
+            int numNodes = messageNodes.getLength();
+            for (int i = 0; i < numNodes; i++) 
             {
-                try
-                {
-                    sms.setPriority(Integer.parseInt(priorityStr));
-                }
-                catch (NumberFormatException ex)
-                {
-                    app.log("Invalid message priority: " + priorityStr);
-                }
-            }
+                Element messageElement = (Element) messageNodes.item(i);
 
-            StringBuilder messageBody = new StringBuilder();
-            NodeList childNodes = smsElement.getChildNodes();
-            int numChildren = childNodes.getLength();
-            for (int j = 0; j < numChildren; j++)
-            {
-                messageBody.append(childNodes.item(j).getNodeValue());
+                OutgoingMessage message = new OutgoingSms(app);
+
+                message.setFrom(app.getPhoneNumber());
+            
+                String to = messageElement.getAttribute("to");
+            
+                message.setTo(to.equals("") ? getDefaultToAddress() : to);
+            
+                String serverId = messageElement.getAttribute("id");
+            
+                message.setServerId(serverId.equals("") ? null : serverId);
+            
+                String priorityStr = messageElement.getAttribute("priority");
+            
+                if (!priorityStr.equals(""))
+                {
+                    try
+                    {
+                        message.setPriority(Integer.parseInt(priorityStr));
+                    }
+                    catch (NumberFormatException ex)
+                    {
+                        app.log("Invalid message priority: " + priorityStr);
+                    }
+                }
+            
+                message.setMessageBody(XmlUtils.getElementText(messageElement));
+            
+                messages.add(message);
             }
-            
-            sms.setMessageBody(messageBody.toString());            
-            
-            messages.add(sms);
         }
         return messages;
     }            
     
     @Override
-    protected void onPostExecute(HttpResponse response) {
-        if (response != null)
+    protected void handleFailure()
+    {
+        app.ungetNewLogEntries(logEntries);   
+    }            
+    
+    @Override
+    protected void handleResponseException(Throwable ex)
+    {
+        app.logError("Error in server response", ex);
+    }                
+        
+    @Override
+    protected void handleRequestException(Throwable ex)
+    {    
+        if (ex instanceof IOException)
         {
-            try
-            {
-                handleResponse(response);            
-            }
-            catch (Throwable ex)
-            {
-                post.abort();
-                app.logError("Error processing server response", ex);
-                handleFailure();
-            }
-            try
-            {
-                response.getEntity().consumeContent();
-            }
-            catch (IOException ex)
-            {
+            app.logError("Error while contacting server", ex);
+            
+            if (ex instanceof UnknownHostException || ex instanceof SocketTimeoutException)
+            {                
+                if (retryOnConnectivityError)
+                {
+                    app.addQueuedTask(getCopy());
+                }
+                
+                app.onConnectivityError();
             }
         }
         else
         {
-            handleFailure();
-        }
-    }
-    
-    protected void handleResponse(HttpResponse response) throws Exception
-    {
+            app.logError("Unexpected error while contacting server", ex, true);           
+        }        
     }    
     
-    protected void handleFailure()
+    @Override
+    public void handleErrorResponse(HttpResponse response) throws Exception
     {
-    }        
+        Document xml = XmlUtils.parseResponse(response);
+        String error = XmlUtils.getErrorText(xml);
+        if (error != null)
+        {
+            app.log(error);
+        }        
+        else
+        {
+            app.log("HTTP " +response.getStatusLine().getStatusCode());
+        }
+    }
 }

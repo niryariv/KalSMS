@@ -45,6 +45,13 @@
             android:summaryOn="Incoming SMS will be stored in Messaging inbox"
     ></CheckBoxPreference>
     
+    <CheckBoxPreference
+            android:key="call_notifications"
+            android:title="Call notifications"
+            android:summaryOff="EnvayaSMS will not notify server when phone receives an incoming call"
+            android:summaryOn="EnvayaSMS will notify server when phone receives an incoming call"
+    ></CheckBoxPreference>        
+    
     <ListPreference
             android:key="wifi_sleep_policy" 
             android:title="Wi-Fi sleep policy"
@@ -52,7 +59,7 @@
             android:entries="@array/wifi_sleep_policies"
             android:entryValues="@array/wifi_sleep_policies_values"            
     >           
-    </ListPreference>
+    </ListPreference>        
     
     <CheckBoxPreference
             android:key="network_failover"

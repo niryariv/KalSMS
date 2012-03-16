@@ -89,6 +89,10 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
             
             app.log("Server URL changed to: " + app.getDisplayString(app.getServerUrl()));
         }
+        else if (key.equals("call_notifications"))
+        {
+            app.log("Call notifications changed to: " + (app.callNotificationsEnabled() ? "ON": "OFF"));
+        }
         else if (key.equals("phone_number"))
         {
             app.log("Phone number changed to: " + app.getDisplayString(app.getPhoneNumber()));

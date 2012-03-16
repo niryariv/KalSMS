@@ -6,8 +6,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.telephony.SmsManager;
-import java.util.ArrayList;
+import android.os.SystemClock;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -19,6 +18,7 @@ import java.util.Queue;
 import java.util.Set;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
+import org.envaya.sms.receiver.OutgoingMessagePoller;
 import org.envaya.sms.task.HttpTask;
 
 public class Outbox {
@@ -39,7 +39,7 @@ public class Outbox {
     // cache of next time we can send the first message in queue without
     // exceeding android sending limit
     private long nextValidOutgoingTime;   
-
+    
     // enqueue outgoing messages in descending order by priority, ascending by local id
     // (order in which message was received)
     private PriorityQueue<OutgoingMessage> outgoingQueue = new PriorityQueue<OutgoingMessage>(10, 
@@ -75,7 +75,10 @@ public class Outbox {
             logMessage = "sent successfully";
         } else if (status.equals(App.STATUS_FAILED)) {
             logMessage = "could not be sent (" + errorMessage + ")";
-        } else {
+        } else if (status.equals(App.STATUS_CANCELLED)) {
+            logMessage = "cancelled";
+        }
+        else {
             logMessage = "queued";
         }
         String smsDesc = sms.getLogName();
@@ -116,6 +119,8 @@ public class Outbox {
     {
         sms.setProcessingState(OutgoingMessage.ProcessingState.Sent);
         
+        sms.clearSendTimeout();
+        
         notifyMessageStatus(sms, App.STATUS_SENT, "");
         
         Uri uri = sms.getUri();
@@ -146,9 +151,11 @@ public class Outbox {
             }
         }
     }
-    
+        
     public synchronized void messageFailed(OutgoingMessage sms, String error)
     {
+        sms.clearSendTimeout();
+        
         if (sms.scheduleRetry()) 
         {
             sms.setProcessingState(OutgoingMessage.ProcessingState.Scheduled);
@@ -164,49 +171,33 @@ public class Outbox {
         maybeDequeueMessage();        
     }
 
-    public synchronized void sendMessage(OutgoingMessage sms) {
-        
-        String to = sms.getTo();
-        if (to == null || to.length() == 0)
+    public synchronized void sendMessage(OutgoingMessage message) {
+                                
+        try
         {
-            notifyMessageStatus(sms, App.STATUS_FAILED, 
-                    "Destination address is empty");
-            return;
-        }        
-        
-        if (!app.isForwardablePhoneNumber(to))
+            message.validate();                
+        }
+        catch (ValidationException ex)
         {
-            // this is mostly to prevent accidentally sending real messages to
-            // random people while testing...
-            notifyMessageStatus(sms, App.STATUS_FAILED,
-                    "Destination address is not allowed");
-            return;
+            notifyMessageStatus(message, App.STATUS_FAILED, ex.getMessage());                        
+            return;                
         }
         
-        String messageBody = sms.getMessageBody();
-        
-        if (messageBody == null || messageBody.length() == 0)
-        {
-            notifyMessageStatus(sms, App.STATUS_FAILED, 
-                    "Message body is empty");
-            return;
-        }               
-        
-        Uri uri = sms.getUri();
+        Uri uri = message.getUri();
         if (outgoingMessages.containsKey(uri)) {
-            app.debug("Duplicate outgoing " + sms.getLogName() + ", skipping");
+            app.debug("Duplicate outgoing " + message.getLogName() + ", skipping");
             return;
         }
         
         if (recentSentMessageUris.contains(uri))
         {
-            app.debug("Outgoing " + sms.getLogName() + " already sent, re-notifying server");   
-            notifyMessageStatus(sms, App.STATUS_SENT, "");
+            app.debug("Outgoing " + message.getLogName() + " already sent, re-notifying server");   
+            notifyMessageStatus(message, App.STATUS_SENT, "");
             return;
         }
 
-        outgoingMessages.put(uri, sms);        
-        enqueueMessage(sms);
+        outgoingMessages.put(uri, message);        
+        enqueueMessage(message);
     }
     
     public synchronized void deleteMessage(OutgoingMessage message)
@@ -222,7 +213,7 @@ public class Outbox {
             numSendingOutgoingMessages--;
         }        
         
-        notifyMessageStatus(message, App.STATUS_FAILED, 
+        notifyMessageStatus(message, App.STATUS_CANCELLED, 
                 "deleted by user");
         app.log(message.getDescription() + " deleted");
         notifyChanged();
@@ -233,46 +224,32 @@ public class Outbox {
         long now = System.currentTimeMillis();        
         if (nextValidOutgoingTime <= now && numSendingOutgoingMessages < 2)
         {
-            OutgoingMessage sms = outgoingQueue.peek();
+            OutgoingMessage message = outgoingQueue.peek();
             
-            if (sms == null)
+            if (message == null)
             {
                 return;
             }
             
-            SmsManager smgr = SmsManager.getDefault();
-            ArrayList<String> bodyParts = smgr.divideMessage(sms.getMessageBody());
+            OutgoingMessage.ScheduleInfo schedule = message.scheduleSend();
             
-            int numParts = bodyParts.size();
-            
-            if (numParts > App.OUTGOING_SMS_MAX_COUNT)
+            if (!schedule.now)
             {
-                outgoingQueue.poll();
-                outgoingMessages.remove(sms.getUri());
-                notifyMessageStatus(sms, App.STATUS_FAILED, 
-                        "Message has too many parts ("+(numParts)+")");
-                return;
-            }
+                nextValidOutgoingTime = schedule.time;
             
-            String packageName = app.chooseOutgoingSmsPackage(numParts);            
-            
-            if (packageName == null)
-            {            
-                nextValidOutgoingTime = app.getNextValidOutgoingTime(numParts);                
-                                
                 if (nextValidOutgoingTime <= now) // should never happen
                 {
                     nextValidOutgoingTime = now + 2000;
                 }
-                
+
                 long diff = nextValidOutgoingTime - now;
-                
+
                 app.log("Waiting for " + (diff/1000) + " seconds");
-                
+
                 AlarmManager alarm = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
 
                 Intent intent = new Intent(app, DequeueOutgoingMessageReceiver.class);
-                
+
                 PendingIntent pendingIntent = PendingIntent.getBroadcast(app,
                     0,
                     intent,
@@ -282,16 +259,18 @@ public class Outbox {
                     AlarmManager.RTC_WAKEUP,
                     nextValidOutgoingTime,
                     pendingIntent);
-                
+
                 return;
             }
-            
+
             outgoingQueue.poll();            
             numSendingOutgoingMessages++;
+
+            message.setProcessingState(OutgoingMessage.ProcessingState.Sending);
+            message.send(schedule);
             
-            sms.setProcessingState(OutgoingMessage.ProcessingState.Sending);
+            message.setSendTimeout();
             
-            sms.trySend(bodyParts, packageName);
             notifyChanged();
         }          
     }

@@ -17,14 +17,20 @@ class EnvayaSMS
     const STATUS_QUEUED = 'queued';
     const STATUS_FAILED = 'failed';
     const STATUS_SENT = 'sent';
+    const STATUS_CANCELLED = 'cancelled';
     
     const DEVICE_STATUS_POWER_CONNECTED = "power_connected";
     const DEVICE_STATUS_POWER_DISCONNECTED = "power_disconnected";
     const DEVICE_STATUS_BATTERY_LOW = "battery_low";
     const DEVICE_STATUS_BATTERY_OKAY = "battery_okay";
+    const DEVICE_STATUS_SEND_LIMIT_EXCEEDED = "send_limit_exceeded";
     
     const MESSAGE_TYPE_SMS = 'sms';
     const MESSAGE_TYPE_MMS = 'mms';    
+    const MESSAGE_TYPE_CALL = 'call';
+    
+    const NETWORK_MOBILE = "MOBILE";    
+    const NETWORK_WIFI = "WIFI";
     
     static function escape($val)
     {
@@ -46,7 +52,27 @@ class EnvayaSMS
             static::$request = new EnvayaSMS_Request();
         }
         return static::$request;
-    }                    
+    }             
+
+    static function get_error_xml($message)
+    {
+        ob_start();
+        echo "<?xml version='1.0' encoding='UTF-8'?>\n";
+        echo "<response>";
+        echo "<error>";
+        echo EnvayaSMS::escape($message);
+        echo "</error>";
+        echo "</response>";
+        return ob_get_clean();
+    }
+    
+    static function get_success_xml()
+    {
+        ob_start();
+        echo "<?xml version='1.0' encoding='UTF-8'?>\n";
+        echo "<response></response>";
+        return ob_get_clean();    
+    }       
 }
 
 class EnvayaSMS_Request
@@ -56,12 +82,28 @@ class EnvayaSMS_Request
     public $version;
     public $phone_number;
     public $log;
+    
+    public $version_name;
+    public $sdk_int;
+    public $manufacturer;
+    public $model;
+    public $network;
 
     function __construct()
     {
         $this->version = $_POST['version'];
         $this->phone_number = $_POST['phone_number'];
-        $this->log = @$_POST['log'];
+        $this->log = $_POST['log'];
+        $this->network = @$_POST['network'];
+        
+        if (preg_match('#/(?P<version_name>[\w\.\-]+) \(Android; SDK (?P<sdk_int>\d+); (?P<manufacturer>[^;]*); (?P<model>[^\)]*)\)#', 
+            @$_SERVER['HTTP_USER_AGENT'], $matches))
+        {
+            $this->version_name = $matches['version_name'];            
+            $this->sdk_int = $matches['sdk_int'];
+            $this->manufacturer = $matches['manufacturer'];
+            $this->model = $matches['model'];
+        }
     }
     
     function get_action()
@@ -124,21 +166,24 @@ class EnvayaSMS_Request
         //error_log("Signed data: '$input'");
         
         return base64_encode(sha1($input, true));            
-    }
+    }    
     
     static function get_messages_xml($messages)
     {
         ob_start();
         echo "<?xml version='1.0' encoding='UTF-8'?>\n";
+        echo "<response>";
         echo "<messages>";
         foreach ($messages as $message)
-        {   
+        {       
+            $type = isset($message->type) ? $message->type : EnvayaSMS::MESSAGE_TYPE_SMS;
             $id = isset($message->id) ? " id=\"".EnvayaSMS::escape($message->id)."\"" : "";
             $to = isset($message->to) ? " to=\"".EnvayaSMS::escape($message->to)."\"" : "";        
             $priority = isset($message->priority) ? " priority=\"".$message->priority."\"" : "";        
-            echo "<sms$id$to$priority>".EnvayaSMS::escape($message->message)."</sms>";
+            echo "<$type$id$to$priority>".EnvayaSMS::escape($message->message)."</$type>";
         }
         echo "</messages>";        
+        echo "</response>";
         return ob_get_clean();    
     }           
 }
@@ -149,6 +194,7 @@ class EnvayaSMS_OutgoingMessage
     public $to;             // destination phone number
     public $message;        // content of SMS message
     public $priority;       // integer priority, higher numbers will be sent first
+    public $type;            // EnvayaSMS::MESSAGE_TYPE_* value (default sms)
 }
 
 class EnvayaSMS_Action
@@ -194,15 +240,17 @@ class EnvayaSMS_Action_Incoming extends EnvayaSMS_Action
     public $message_type;   // EnvayaSMS::MESSAGE_TYPE_MMS or EnvayaSMS::MESSAGE_TYPE_SMS
     public $mms_parts;      // array of EnvayaSMS_MMS_Part instances
     public $timestamp;      // timestamp of incoming message (added in version 12)
+    public $age;            // delay in ms between time when message originally received and when forwarded to server (added in version 18)
 
     function __construct($request)
     {
         parent::__construct($request);
         $this->type = EnvayaSMS::ACTION_INCOMING;
         $this->from = $_POST['from'];
-        $this->message = $_POST['message'];
+        $this->message = @$_POST['message'];
         $this->message_type = $_POST['message_type'];
         $this->timestamp = @$_POST['timestamp'];
+        $this->age = @$_POST['age'];
         
         if ($this->message_type == EnvayaSMS::MESSAGE_TYPE_MMS)
         {
@@ -247,7 +295,7 @@ class EnvayaSMS_Action_SendStatus extends EnvayaSMS_Action
 {    
     public $status;     // EnvayaSMS::STATUS_* values
     public $id;         // server ID previously used in EnvayaSMS_OutgoingMessage
-    public $error;      // textual descrption of error (if applicable)
+    public $error;      // textual description of error (if applicable)
     
     function __construct($request)
     {

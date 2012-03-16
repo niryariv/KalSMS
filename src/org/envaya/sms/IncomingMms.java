@@ -11,7 +11,6 @@ import java.util.List;
 import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.task.ForwarderTask;
 
 public class IncomingMms extends IncomingMessage {
@@ -76,22 +75,13 @@ public class IncomingMms extends IncomingMessage {
         return builder.toString();
     }
     
-    public void tryForwardToServer()
+    @Override
+    protected ForwarderTask getForwarderTask()
     {        
-        if (numRetries > 0)
-        {
-            app.log("Retrying forwarding MMS from " + from);
-        }
-        else
-        {
-            app.log("Forwarding MMS to server...");
-        }
-        
         List<FormBodyPart> formParts = new ArrayList<FormBodyPart>();        
         
         int i = 0;
-        
-        String message = "";
+                
         JSONArray partsMetadata = new JSONArray();
         
         for (MmsPart part : parts)
@@ -99,12 +89,7 @@ public class IncomingMms extends IncomingMessage {
             String formFieldName = "part" + i;
             String text = part.getText();
             String contentType = part.getContentType();
-            String partName = part.getName();
-            
-            if ("text/plain".equals(contentType))
-            {
-                message = text;
-            }
+            String partName = part.getName();            
             
             ContentBody body;
             
@@ -154,18 +139,33 @@ public class IncomingMms extends IncomingMessage {
             i++;
         }
         
-        ForwarderTask task = new ForwarderTask(this,            
-            new BasicNameValuePair("message", message),
-            new BasicNameValuePair("message_type", App.MESSAGE_TYPE_MMS),
-            new BasicNameValuePair("mms_parts", partsMetadata.toString())
-        );
-        
+        ForwarderTask task = super.getForwarderTask();        
+        task.addParam("mms_parts", partsMetadata.toString());
         task.setFormParts(formParts);        
-        task.execute();
-    }
+        return task;
+    }    
+
+    @Override
+    public String getMessageBody()
+    {
+        for (MmsPart part : parts)
+        {
+            if ("text/plain".equals(part.getContentType()))
+            {
+                return part.getText();
+            }
+        }
+        
+        return "";
+    }        
     
     public Uri getUri() 
     {
         return Uri.withAppendedPath(App.INCOMING_URI, "mms/" + id);
     }       
+    
+    public String getMessageType()
+    {
+        return App.MESSAGE_TYPE_MMS;
+    }    
 }

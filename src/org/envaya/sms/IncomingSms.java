@@ -5,13 +5,10 @@ import android.net.Uri;
 import android.telephony.SmsMessage;
 import java.security.InvalidParameterException;
 import java.util.List;
-import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.task.ForwarderTask;
 
 
 public class IncomingSms extends IncomingMessage {
-    
-    protected String message;
     
     // constructor for SMS retrieved from android.provider.Telephony.SMS_RECEIVED intent
     public IncomingSms(App app, List<SmsMessage> smsParts) throws InvalidParameterException {
@@ -42,12 +39,7 @@ public class IncomingSms extends IncomingMessage {
     public IncomingSms(App app, String from, String message, long timestampMillis) {
         super(app, from, timestampMillis);
         this.message = message;
-    }        
-    
-    public String getMessageBody()
-    {
-        return message;
-    }
+    }                
     
     public String getDisplayType()
     {
@@ -62,18 +54,9 @@ public class IncomingSms extends IncomingMessage {
                 + timestamp + "/" + 
                 Uri.encode(message));
     }        
-
-    public void tryForwardToServer() {        
-        
-        if (numRetries > 0)
-        {
-            app.log("Retrying forwarding SMS from " + from);
-        }
-        
-        new ForwarderTask(this,
-            new BasicNameValuePair("message_type", App.MESSAGE_TYPE_SMS),
-            new BasicNameValuePair("message", getMessageBody())            
-        ).execute();
-    }
     
+    public String getMessageType()
+    {
+        return App.MESSAGE_TYPE_SMS;
+    }
 }
