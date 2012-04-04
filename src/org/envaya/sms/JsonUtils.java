@@ -129,8 +129,6 @@ public class JsonUtils {
         }
     }
     
-    static App app;
-    
     // like JSONObject.optString but doesn't convert null to "null"
     private static String optString(JSONObject json, String key, String defaultValue)
     {        
@@ -158,7 +156,7 @@ public class JsonUtils {
     {
         List<OutgoingMessage> messages = new ArrayList<OutgoingMessage>();
         JSONArray messagesList = json.optJSONArray("messages");
-        JsonUtils.app = app;
+
         if (messagesList != null)
         {                    
             int numMessages = messagesList.length();
