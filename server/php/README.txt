@@ -10,19 +10,21 @@ PHP web server, by running the following commands:
     git submodule init
     php server.php
     
-example/config.php contains the list of phone numbers and passwords for phones running EnvayaSMS.
+example/config.php contains the password for a phone running EnvayaSMS. The password
+This password must match the password in the EnvayaSMS app settings,
+otherwise example/gateway.php will return an "Invalid password" error.
 
 On a phone running EnvayaSMS, go to Menu -> Settings and enter:
-    * Server URL: The URL to example/www/index.php. 
-        If you're using server.php, this will be http://<your_ip_address>:8002/
-    * Your phone number: One of the phone numbers listed in example/config.php
-    * Password: The corresponding password in example/config.php
+    * Server URL: The URL to example/www/gateway.php. 
+        If you're using server.php, this will be http://<your_ip_address>:8002/gateway.php
+    * Your phone number: The phone number of your Android phone
+    * Password: The password in example/config.php
 
 To send an outgoing SMS, use 
-    php example/send_sms.php
-    
+    php example/send_sms.php   
+
 example/www/test.html allows you to simulate the HTTP requests made by EnvayaSMS 
 in your browser without actually using the EnvayaSMS app.
 If you're using server.php, just go to http://<your_ip_address>:8002/test.html
 
-See EnvayaSMS.php and example/www/index.php 
+See EnvayaSMS.php and example/www/gateway.php 

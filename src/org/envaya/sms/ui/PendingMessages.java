@@ -130,7 +130,7 @@ public class PendingMessages extends ListActivity {
         
         displayedMessages = messages;
         
-        this.setTitle("EnvayaSMS : Pending Messages ("+messages.size()+")");
+        this.setTitle(getText(R.string.pending_messages_title) + " ("+messages.size()+")");
         
         final LayoutInflater inflater = (LayoutInflater)getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         final DateFormat longFormat = new SimpleDateFormat("dd MMM hh:mm:ss");

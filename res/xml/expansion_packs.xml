@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceScreen 
+        android:key="pack01" 
+        android:title="SMS Expansion Pack 1"
+        android:summary="...">
+        <intent 
+            android:action="android.intent.action.VIEW"
+            android:data="market://details?id=org.envaya.sms.pack01"
+        />
+    </PreferenceScreen>            
+    <PreferenceScreen 
+        android:key="pack02" 
+        android:title="SMS Expansion Pack 2"
+        android:summary="...">
+        <intent 
+            android:action="android.intent.action.VIEW"
+            android:data="market://details?id=org.envaya.sms.pack02"
+        />
+    </PreferenceScreen>            
+</PreferenceScreen>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.envaya.sms;
+package org.envaya.sms.service;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -23,10 +23,12 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
+import org.envaya.sms.App;
+import org.envaya.sms.R;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import org.envaya.sms.ui.LogView;
+import org.envaya.sms.ui.Main;
 
 /*
  *  Service running in foreground to make sure App instance stays 
@@ -159,13 +161,12 @@ public class ForegroundService extends Service {
                     System.currentTimeMillis());
 
             PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                    new Intent(this, LogView.class), 0);
+                    new Intent(this, Main.class), 0);
 
-            notification.setLatestEventInfo(this, 
-                    "EnvayaSMS running",
-                   text, contentIntent);
+            CharSequence info = getText(R.string.running);
+            notification.setLatestEventInfo(this, info, text, contentIntent);
 
-            startForegroundCompat(R.string.service_started, notification);
+            startForegroundCompat(R.string.service_started, notification);            
         }
         else
         {

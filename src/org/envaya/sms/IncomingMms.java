@@ -14,59 +14,60 @@ import org.apache.http.entity.mime.content.ContentBody;
 import org.envaya.sms.task.ForwarderTask;
 
 public class IncomingMms extends IncomingMessage {
-    List<MmsPart> parts;
-    long id;
-    String contentLocation;
+    private List<MmsPart> parts;
     
-    public IncomingMms(App app, String from, long timestamp, long id)
+    public IncomingMms(App app, long timestamp, long messagingId)
     {
-        super(app, from, timestamp);
-        this.parts = new ArrayList<MmsPart>();
-        this.id = id;
-    }        
+        super(app, null, timestamp);
+        this.messagingId = messagingId;
+    }
+
+    public IncomingMms(App app)
+    {
+        super(app);
+    }
     
-    public String getDisplayType()
+    @Override 
+    public String getFrom()
     {
-        return "MMS";
+        if (from == null || from.length() == 0)
+        {
+            // lazy-load sender number from Messaging database as needed
+            from = app.getMessagingUtils().getMmsSenderNumber(messagingId);   
+        }
+        return from;
     }
     
     public List<MmsPart> getParts()
     {
+        if (parts == null)
+        {
+            // lazy-load mms parts from Messaging database as needed
+            this.parts = new ArrayList<MmsPart>();
+            for (MmsPart part : app.getMessagingUtils().getMmsParts(messagingId))
+            {
+                parts.add(part);
+            }
+        }
         return parts;
-    }   
-    
-    public void addPart(MmsPart part)
-    {
-        parts.add(part);
     }
     
-    public long getId()
+    public String getDisplayType()
     {
-        return id;
-    }
-    
-    public String getContentLocation()
-    {
-        return contentLocation;
-    }
-    
-    public void setContentLocation(String contentLocation)
-    {
-        this.contentLocation = contentLocation;
-    }
-            
+        return "MMS";
+    }    
     
     @Override
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
         builder.append("MMS id=");
-        builder.append(id);
+        builder.append(messagingId);
         builder.append(" from=");
         builder.append(from);
         builder.append(":\n");
         
-        for (MmsPart part : parts)
+        for (MmsPart part : getParts())
         {
             builder.append(" ");
             builder.append(part.toString());
@@ -84,7 +85,7 @@ public class IncomingMms extends IncomingMessage {
                 
         JSONArray partsMetadata = new JSONArray();
         
-        for (MmsPart part : parts)
+        for (MmsPart part : getParts())
         {
             String formFieldName = "part" + i;
             String text = part.getText();
@@ -148,7 +149,7 @@ public class IncomingMms extends IncomingMessage {
     @Override
     public String getMessageBody()
     {
-        for (MmsPart part : parts)
+        for (MmsPart part : getParts())
         {
             if ("text/plain".equals(part.getContentType()))
             {
@@ -161,11 +162,21 @@ public class IncomingMms extends IncomingMessage {
     
     public Uri getUri() 
     {
-        return Uri.withAppendedPath(App.INCOMING_URI, "mms/" + id);
+        return Uri.withAppendedPath(App.INCOMING_URI, "mms/" + messagingId);
     }       
     
     public String getMessageType()
     {
         return App.MESSAGE_TYPE_MMS;
     }    
+    
+    @Override 
+    public void onForwardComplete()
+    {
+        if (!app.getKeepInInbox())
+        {
+            app.log("Deleting MMS " + getMessagingId() + " from inbox...");
+            app.getMessagingUtils().deleteFromMmsInbox(this);
+        }
+    }
 }

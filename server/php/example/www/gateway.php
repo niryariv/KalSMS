@@ -1,44 +1,38 @@
 <?php
 
+/* 
+ * This example script implements the EnvayaSMS API. 
+ *
+ * It sends an auto-reply to each incoming message, and sends outgoing SMS
+ * that were previously queued by example/send_sms.php .
+ *
+ * To use this file, set the URL to this file as as the the Server URL in the EnvayaSMS app.
+ * The password in the EnvayaSMS app settings must be the same as $PASSWORD in config.php.
+ */
+
 require_once dirname(__DIR__)."/config.php";
 require_once dirname(dirname(__DIR__))."/EnvayaSMS.php";
 
-ini_set('display_errors','0');
-
-// this example implementation uses the filesystem to store outgoing SMS messages,
-// but presumably a production implementation would use another storage method
-
 $request = EnvayaSMS::get_request();
 
-$phone_number = $request->phone_number;
+header("Content-Type: {$request->get_response_type()}");
 
-$password = @$PASSWORDS[$phone_number];
-
-header("Content-Type: text/xml");
-
-if (!isset($password) || !$request->is_validated($password))
+if (!$request->is_validated($PASSWORD))
 {
     header("HTTP/1.1 403 Forbidden");
-    error_log("Invalid request signature");    
-    echo EnvayaSMS::get_error_xml("Invalid request signature");
+    error_log("Invalid password");    
+    echo $request->render_error_response("Invalid password");
     return;
 }
-
-// append to EnvayaSMS app log
-$app_log = $request->log;
-if ($app_log)
-{
-    $log_file = dirname(__DIR__)."/log/sms_".preg_replace('#[^\w]#', '', $request->phone_number).".log";        
-    $f = fopen($log_file, "a");
-    fwrite($f, $app_log);
-    fclose($f);        
-} 
 
 $action = $request->get_action();
 
 switch ($action->type)
 {
     case EnvayaSMS::ACTION_INCOMING:    
+        
+        // Send an auto-reply for each incoming message.
+    
         $type = strtoupper($action->message_type);
     
         error_log("Received $type from {$action->from}");
@@ -62,25 +56,29 @@ switch ($action->type)
         $reply->message = "You said: {$action->message}";
     
         error_log("Sending reply: {$reply->message}");
-    
-        echo $action->get_response_xml(array($reply));
+        
+        echo $request->render_response(array(
+            new EnvayaSMS_Event_Send(array($reply))
+        ));        
         return;
         
     case EnvayaSMS::ACTION_OUTGOING:
         $messages = array();
    
+        // In this example implementation, outgoing SMS messages are queued 
+        // on the local file system by send_sms.php. 
+          
         $dir = opendir($OUTGOING_DIR_NAME);
         while ($file = readdir($dir)) 
         {
             if (preg_match('#\.json$#', $file))
             {
                 $data = json_decode(file_get_contents("$OUTGOING_DIR_NAME/$file"), true);
-                if ($data && @$data['from'] == $phone_number)
+                if ($data)
                 {
                     $sms = new EnvayaSMS_OutgoingMessage();
                     $sms->id = $data['id'];
                     $sms->to = $data['to'];
-                    $sms->from = $data['from'];
                     $sms->message = $data['message'];
                     $messages[] = $sms;
                 }
@@ -88,33 +86,40 @@ switch ($action->type)
         }
         closedir($dir);
         
-        echo $action->get_response_xml($messages);
+        $events = array();
+        
+        if ($messages)
+        {
+            $events[] = new EnvayaSMS_Event_Send($messages);
+        }
+        
+        echo $request->render_response($events);
+
         return;
         
     case EnvayaSMS::ACTION_SEND_STATUS:
     
         $id = $action->id;
         
+        error_log("message $id status: {$action->status}");
+        
         // delete file with matching id    
-        if (preg_match('#^\w+$#', $id) && unlink("$OUTGOING_DIR_NAME/$id.json"))
+        if (preg_match('#^\w+$#', $id))
         {
-            echo EnvayaSMS::get_success_xml();
-        }       
-        else
-        {
-            header("HTTP/1.1 404 Not Found");
-            echo EnvayaSMS::get_error_xml("Invalid id");
-        }   
+            unlink("$OUTGOING_DIR_NAME/$id.json");
+        }
+        echo $request->render_response();        
+        
         return;
     case EnvayaSMS::ACTION_DEVICE_STATUS:
         error_log("device_status = {$action->status}");
-        echo EnvayaSMS::get_success_xml();
-        return;        
+        echo $request->render_response();
+        return;             
     case EnvayaSMS::ACTION_TEST:
-        echo EnvayaSMS::get_success_xml();
-        return;        
+        echo $request->render_response();
+        return;                             
     default:
         header("HTTP/1.1 404 Not Found");
-        echo EnvayaSMS::get_error_xml("Invalid action");
+        echo $request->render_error_response("The server does not support the requested action.");
         return;
 }

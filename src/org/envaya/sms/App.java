@@ -1,5 +1,6 @@
 package org.envaya.sms;
 
+import org.envaya.sms.service.EnabledChangedService;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Application;
@@ -18,8 +19,6 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.telephony.PhoneStateListener;
-import android.telephony.TelephonyManager;
 import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
@@ -54,9 +53,17 @@ public final class App extends Application {
     
     public static final String ACTION_OUTGOING = "outgoing";
     public static final String ACTION_INCOMING = "incoming";
+    public static final String ACTION_FORWARD_SENT = "forward_sent";
     public static final String ACTION_SEND_STATUS = "send_status";
     public static final String ACTION_DEVICE_STATUS = "device_status";
     public static final String ACTION_TEST = "test";
+    public static final String ACTION_AMQP_STARTED = "amqp_started";
+    
+    public static final String EVENT_SEND = "send";
+    public static final String EVENT_CANCEL = "cancel";
+    public static final String EVENT_CANCEL_ALL = "cancel_all";
+    public static final String EVENT_LOG = "log";
+    public static final String EVENT_SETTINGS = "settings";
     
     public static final String STATUS_QUEUED = "queued";
     public static final String STATUS_FAILED = "failed";
@@ -77,7 +84,10 @@ public final class App extends Application {
     
     // intent to signal to Main activity (if open) that log has changed
     public static final String LOG_CHANGED_INTENT = "org.envaya.sms.LOG_CHANGED";
-
+    public static final String SETTINGS_CHANGED_INTENT = "org.envaya.sms.SETTINGS_CHANGED";
+    
+    public static final String EXPANSION_PACKS_CHANGED_INTENT = "org.envaya.sms.EXPANSION_PACKS_CHANGED";
+            
     // signal to PendingMessages activity (if open) that inbox/outbox has changed
     public static final String INBOX_CHANGED_INTENT = "org.envaya.sms.INBOX_CHANGED";
     public static final String OUTBOX_CHANGED_INTENT = "org.envaya.sms.OUTBOX_CHANGED";
@@ -134,7 +144,8 @@ public final class App extends Application {
     public final Queue<HttpTask> queuedTasks = new LinkedList<HttpTask>();
     
     private SharedPreferences settings;
-    private MmsObserver mmsObserver;
+    private MessagingObserver messagingObserver;
+    
     private SpannableStringBuilder displayedLog = new SpannableStringBuilder();
     private long lastLogTime;    
     
@@ -151,24 +162,39 @@ public final class App extends Application {
     // count to provide round-robin selection of expansion packs
     private int outgoingMessageCount = -1;
     
-    private MmsUtils mmsUtils;
+    private MessagingUtils messagingUtils;
     private CallListener callListener;    
+    private DatabaseHelper dbHelper;
+    private AmqpConsumer amqpConsumer;
     
     private boolean connectivityError = false;
-        
+    
     @Override
     public void onCreate()
     {
         super.onCreate();
         
+        // workaround for http://code.google.com/p/android/issues/detail?id=20915
+        try
+        {
+            Class.forName("android.os.AsyncTask");
+        }
+        catch (ClassNotFoundException ex)
+        {
+        }
+        
         settings = PreferenceManager.getDefaultSharedPreferences(this);        
-        mmsUtils = new MmsUtils(this);
+        messagingUtils = new MessagingUtils(this);
         
         callListener = new CallListener(this);  
         
         outgoingMessagePackages.add(getPackageName());
         
-        mmsObserver = new MmsObserver(this);
+        messagingObserver = new MessagingObserver(this);
+        
+        dbHelper = new DatabaseHelper(this);
+        
+        amqpConsumer = new AmqpConsumer(this);
         
         try
         {
@@ -187,90 +213,28 @@ public final class App extends Application {
     
     public void configuredChanged()
     {
-        log(Html.fromHtml(
-            isEnabled() ? "<b>SMS gateway running ("+getDisplayString(getPhoneNumber())+").</b>" 
-                : "<b>SMS gateway disabled.</b>"));
-
-        log("Server URL: " + getDisplayString(getServerUrl()));
-        log("Keep new messages: " + (getKeepInInbox() ? "YES": "NO"));
-        log("Call notifications: " + (callNotificationsEnabled() ? "ON": "OFF"));
-        log("Network failover: " + (isNetworkFailoverEnabled() ? "ON": "OFF"));
-
-        boolean ignoreShortcodes = ignoreShortcodes();
-        boolean ignoreNonNumeric = ignoreNonNumeric();            
-        List<String> ignoredNumbers = getIgnoredPhoneNumbers();
-
-        if (ignoredNumbers.size() > 0 || ignoreShortcodes || ignoreNonNumeric)
+        if (isConfigured())
         {
-            log("Ignored phone numbers:");            
-
-            if (ignoreShortcodes || ignoreNonNumeric)
-            {
-                String ignoreDesc = "  ";
-                if (ignoreShortcodes)
-                {
-                    ignoreDesc += "all shortcodes";
-                }
-
-                if (ignoreShortcodes && ignoreNonNumeric)
-                {
-                    ignoreDesc += ", ";
-                }
-
-                if (ignoreNonNumeric)
-                {
-                    ignoreDesc += "all non-numeric";
-                }
-                log(ignoreDesc);
-            }
-
-            for (String sender : ignoredNumbers)
-            {
-                log("  " + sender);
-            }
+            sendBroadcast(new Intent(App.SETTINGS_CHANGED_INTENT));
+            enabledChanged();
         }
-
-        if (isTestMode())
-        {
-            log("Test mode: ON");
-            log("Test phone numbers:");
-
-            for (String sender : getTestPhoneNumbers())
-            {
-                log("  " + sender);
-            }
-        }                          
-
-        log(Html.fromHtml("<b>To change these settings, click Menu, then Settings.</b>"));
-
-        enabledChanged();
-    }
+    }   
     
     public void enabledChanged()
-    {        
-        TelephonyManager telephony = (TelephonyManager)   
-            getSystemService(Context.TELEPHONY_SERVICE);                  
-        
-        if (isEnabled())
-        {
-            mmsObserver.register();  
-            
-            telephony.listen(callListener, PhoneStateListener.LISTEN_CALL_STATE);          
-        }
-        else
-        {
-            mmsObserver.unregister();
-            
-            telephony.listen(callListener, PhoneStateListener.LISTEN_NONE);
-        }                
-        
-        setOutgoingMessageAlarm();
-        startService(new Intent(this, ForegroundService.class));        
-    }    
+    {
+        // startup/shutdown tasks may be slow, so offload them to a worker thread...
+        // IntentService takes care of only running one request at a time        
+        startService(new Intent(this, EnabledChangedService.class));        
+    }
     
     public PackageInfo getPackageInfo()
     {
         return packageInfo;
+    }
+    
+    public boolean isSmsExpansionPackInstalled(String packageName)
+    {
+        return outgoingMessagePackages.contains(packageName);
     }
     
     public synchronized String chooseOutgoingSmsPackage(int numParts)
@@ -388,8 +352,9 @@ public final class App extends Application {
         
         if (prevLimit != newLimit)
         {        
-            log("Outgoing SMS limit: " + newLimit + " messages/hour");
+            log("Outgoing SMS rate limit: " + newLimit + " messages/hour");
         }
+        sendBroadcast(new Intent(App.EXPANSION_PACKS_CHANGED_INTENT));
     }
     
     public int getOutgoingMessageLimit()
@@ -442,11 +407,11 @@ public final class App extends Application {
         {
             String serverUrl = getServerUrl();
             if (serverUrl.length() > 0) {
-                log("Checking for outgoing messages");
+                log("Checking for messages");
                 pollActive = true;                
                 new PollerTask(this).execute();
             } else {
-                log("Can't check outgoing messages; server URL not set");
+                log("Can't check messages; server URL not set");
             }
         }
         else
@@ -490,27 +455,68 @@ public final class App extends Application {
             return str;
         }
     }
+
+    public boolean isConfigured()
+    {
+        return getServerUrl().length() > 0;   
+    }
     
     public boolean callNotificationsEnabled()
     {
         return tryGetBooleanSetting("call_notifications", false);
     }
     
+    public String getConfigureServer() {
+        return settings.getString("configure_server", "");
+    }    
+    
     public String getServerUrl() {
         return settings.getString("server_url", "");
     }
-    
+
     public String getPhoneNumber() {
         return settings.getString("phone_number", "");
     }
     
-    public int getOutgoingPollSeconds() {
-        return Integer.parseInt(settings.getString("outgoing_interval", "0"));
+    public boolean isAmqpEnabled()
+    {
+        return tryGetBooleanSetting("amqp_enabled", false);
+    }
+
+    public String getPhoneID() {
+        return settings.getString("phone_id", "");
+    }
+    
+    public String getPhoneToken()
+    {
+        return settings.getString("phone_token", "");
+    }
+    
+    public int getOutgoingPollSeconds() 
+    {
+        return tryGetIntegerSetting("outgoing_interval", 0);
     }
 
     public boolean isEnabled()
     {
         return tryGetBooleanSetting("enabled", false);
+    }
+    
+    public String tryGetStringSetting(String name, String defaultValue)
+    {
+        return settings.getString(name, defaultValue);
+    }
+    
+    public int tryGetIntegerSetting(String name, int defaultValue)
+    {
+        try
+        {
+            return settings.getInt(name, defaultValue);
+        }
+        catch (ClassCastException ex)
+        {        
+            return Integer.parseInt(settings.getString(name, "" + defaultValue));
+        }
     }
     
     public boolean tryGetBooleanSetting(String name, boolean defaultValue)
@@ -519,7 +525,7 @@ public final class App extends Application {
         {
             return settings.getBoolean(name, defaultValue);
         }
-        catch (Exception ex)
+        catch (ClassCastException ex)
         {
             return defaultValue;
         }
@@ -530,10 +536,20 @@ public final class App extends Application {
         return tryGetBooleanSetting("network_failover", false);
     }
     
+    public boolean isForwardingSentMessagesEnabled()
+    {
+        return tryGetBooleanSetting("forward_sent", false);
+    }
+    
     public boolean isTestMode()
     {
         return tryGetBooleanSetting("test_mode", false);
-    }    
+    }        
+    
+    public boolean autoAddTestNumber()
+    {
+        return tryGetBooleanSetting("auto_add_test_number", false);
+    }
     
     public boolean getKeepInInbox() 
     {
@@ -542,12 +558,17 @@ public final class App extends Application {
     
     public boolean ignoreShortcodes()
     {
-        return tryGetBooleanSetting("ignore_shortcodes", true);
+        return tryGetBooleanSetting("ignore_shortcodes", false);
     }
     
     public boolean ignoreNonNumeric()
     {
-        return tryGetBooleanSetting("ignore_non_numeric", true);
+        return tryGetBooleanSetting("ignore_non_numeric", false);
+    }
+    
+    public int getSettingsVersion()
+    {
+        return tryGetIntegerSetting("settings_version", 0);
     }
 
     public String getPassword() {
@@ -628,15 +649,25 @@ public final class App extends Application {
         sendBroadcast(new Intent(App.LOG_CHANGED_INTENT));
     }
 
+    public boolean isUpgradeAvailable()
+    {
+        return tryGetIntegerSetting("market_version", 0) > packageInfo.versionCode;
+    }
+    
+    public String getMarketVersionName()
+    {
+        return settings.getString("market_version_name", "?");
+    }
+    
     /*
      * Changes whenever we change the beginning of the displayed log.
      * If it doesn't change, the Main activity can update the log view much
      * faster by using TextView.append() instead of TextView.setText()
      */
-    public int getLogEpoch()
+    public synchronized int getLogEpoch()
     {
         return logEpoch;
-    }
+    }    
     
     public synchronized CharSequence getDisplayedLog()
     {
@@ -665,9 +696,9 @@ public final class App extends Application {
         }
     }    
     
-    public MmsUtils getMmsUtils()
+    public MessagingUtils getMessagingUtils()
     {
-        return mmsUtils;
+        return messagingUtils;
     }
     
     private List<String> testPhoneNumbers;    
@@ -763,20 +794,48 @@ public final class App extends Application {
         return values;
     }
     
+    public boolean isPhoneNumberInList(String phoneNumber, List<String> phoneNumbers)
+    {
+        int phoneLen = phoneNumber.length();
+        
+        for (String otherNumber : phoneNumbers)
+        {
+            if (otherNumber == null)
+            {
+                continue;
+            }
+            
+            if (phoneNumber.equals(otherNumber))
+            {
+                return true;
+            }            
+            
+            int otherLen = otherNumber.length();
+            
+            // fuzzy matching to account for different versions of same phone number (+, area codes, country codes)
+            if ((otherLen >= 7 && phoneNumber.endsWith(otherNumber)) || 
+                phoneLen >= 7 && otherNumber.endsWith(phoneNumber))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public boolean isForwardablePhoneNumber(String phoneNumber)
     {
         if (isTestMode())
-        {
-            return getTestPhoneNumbers().contains(phoneNumber);
+        {            
+            return isPhoneNumberInList(phoneNumber, getTestPhoneNumbers());
         }        
         
-        if (getIgnoredPhoneNumbers().contains(phoneNumber))
+        if (isPhoneNumberInList(phoneNumber, getIgnoredPhoneNumbers()))
         {
             return false;
         }
         
         int numDigits = 0;
-        int length = phoneNumber.length();
+        int length = (phoneNumber == null) ? 0 : phoneNumber.length();
 
         for (int i = 0; i < length; i++)
         {
@@ -949,15 +1008,19 @@ public final class App extends Application {
         
         if (networkInfo == null || !networkInfo.isConnected())
         {
+            amqpConsumer.stopAsync();
+            
             return;
         }
+
+        amqpConsumer.startDelayed(5000);
         
         int networkType = networkInfo.getType();
         
         if (networkType == activeNetworkType)
         {
             return;
-        }
+        }        
         
         activeNetworkType = networkType;        
         log("Connected to " + networkInfo.getTypeName());        
@@ -1007,5 +1070,25 @@ public final class App extends Application {
     public synchronized void addQueuedTask(HttpTask task)
     {
         queuedTasks.add(task);
-    }    
+    }
+
+    public DatabaseHelper getDatabaseHelper()
+    {
+        return dbHelper;
+    }
+        
+    public MessagingObserver getMessagingObserver()
+    {
+        return messagingObserver;
+    }
+    
+    public CallListener getCallListener()
+    {
+        return callListener;
+    }
+    
+    public AmqpConsumer getAmqpConsumer()
+    {
+        return amqpConsumer;
+    }
 }

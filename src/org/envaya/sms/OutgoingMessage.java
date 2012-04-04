@@ -17,7 +17,7 @@ public abstract class OutgoingMessage extends QueuedMessage {
     private String from;
     private String to;     
     private int priority;
-    private int localId;        
+    private int localId;
     private static int nextLocalId = 1;            
     
     private ProcessingState state = ProcessingState.None;
@@ -46,6 +46,11 @@ public abstract class OutgoingMessage extends QueuedMessage {
     public ProcessingState getProcessingState()
     {
         return state;
+    }
+    
+    public static OutgoingMessage newFromMessageType(App app, String type)
+    {
+        return new OutgoingSms(app);
     }
     
     public void setProcessingState(ProcessingState status)
@@ -157,12 +162,11 @@ public abstract class OutgoingMessage extends QueuedMessage {
         return getDisplayType() + " to " + getTo();
     }
     
-    abstract String getLogName();
-    
     public void validate() throws ValidationException
     {
     }
     
+    abstract String getMessageType();
     abstract ScheduleInfo scheduleSend();
     abstract void send(ScheduleInfo schedule);
 

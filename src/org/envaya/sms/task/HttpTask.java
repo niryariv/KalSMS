@@ -4,32 +4,31 @@
  */
 package org.envaya.sms.task;
 
-import org.envaya.sms.XmlUtils;
-import org.envaya.sms.OutgoingSms;
 import org.envaya.sms.OutgoingMessage;
-import org.envaya.sms.App;
+import org.envaya.sms.JsonUtils;
 import org.envaya.sms.Base64Coder;
-import android.content.SharedPreferences;
+import org.envaya.sms.App;
+import org.envaya.sms.XmlUtils;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.preference.PreferenceManager;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 public class HttpTask extends BaseHttpTask {
@@ -97,11 +96,37 @@ public class HttpTask extends BaseHttpTask {
             return null;
         }
 
-        logEntries = app.getNewLogEntries();
+        logEntries = app.getNewLogEntries();        
         
-        params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
         params.add(new BasicNameValuePair("phone_number", app.getPhoneNumber()));
+        params.add(new BasicNameValuePair("phone_id", app.getPhoneID()));
+        params.add(new BasicNameValuePair("phone_token", app.getPhoneToken()));
         params.add(new BasicNameValuePair("send_limit", "" + app.getOutgoingMessageLimit()));
+        params.add(new BasicNameValuePair("now", "" + System.currentTimeMillis()));
+        params.add(new BasicNameValuePair("settings_version", "" + app.getSettingsVersion()));
+        
+        Intent lastBatteryIntent = app.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        
+        if (lastBatteryIntent != null)
+        {
+            // BatteryManager.EXTRA_* constants introduced in API level 5 (2.0)
+            int rawLevel = lastBatteryIntent.getIntExtra("level", -1);
+            int scale = lastBatteryIntent.getIntExtra("scale", -1);
+            
+            int pctLevel = (rawLevel > 0 && scale > 0) ? (rawLevel * 100 / scale) : rawLevel;
+            
+            if (pctLevel >= 0)
+            {
+                params.add(new BasicNameValuePair("battery", "" + pctLevel));
+            }
+            
+            int plugged = lastBatteryIntent.getIntExtra("plugged", -1);            
+            
+            if (plugged >= 0)
+            {
+                params.add(new BasicNameValuePair("power", "" + plugged));
+            }
+        }
         
         ConnectivityManager cm = 
             (ConnectivityManager)app.getSystemService(App.CONNECTIVITY_SERVICE);
@@ -133,56 +158,29 @@ public class HttpTask extends BaseHttpTask {
     protected String getDefaultToAddress()
     {
         return "";
+    }    
+    
+    protected void handleResponseJSON(JSONObject json)
+            throws JSONException
+    {
+        JsonUtils.processEvents(json, app, getDefaultToAddress());
     }
         
-    protected List<OutgoingMessage> parseResponseXML(HttpResponse response)
+    protected void handleResponseXML(Document xml)
              throws IOException, ParserConfigurationException, SAXException
     {
-        List<OutgoingMessage> messages = new ArrayList<OutgoingMessage>();
-        Document xml = XmlUtils.parseResponse(response);     
-
-        Element messagesElement = (Element) xml.getElementsByTagName("messages").item(0);
-        if (messagesElement != null)
+        for (OutgoingMessage message : XmlUtils.getMessagesList(xml, app, getDefaultToAddress()))
         {
-            NodeList messageNodes = messagesElement.getChildNodes();
-            int numNodes = messageNodes.getLength();
-            for (int i = 0; i < numNodes; i++) 
-            {
-                Element messageElement = (Element) messageNodes.item(i);
-
-                OutgoingMessage message = new OutgoingSms(app);
-
-                message.setFrom(app.getPhoneNumber());
-            
-                String to = messageElement.getAttribute("to");
-            
-                message.setTo(to.equals("") ? getDefaultToAddress() : to);
-            
-                String serverId = messageElement.getAttribute("id");
-            
-                message.setServerId(serverId.equals("") ? null : serverId);
-            
-                String priorityStr = messageElement.getAttribute("priority");
-            
-                if (!priorityStr.equals(""))
-                {
-                    try
-                    {
-                        message.setPriority(Integer.parseInt(priorityStr));
-                    }
-                    catch (NumberFormatException ex)
-                    {
-                        app.log("Invalid message priority: " + priorityStr);
-                    }
-                }
-            
-                message.setMessageBody(XmlUtils.getElementText(messageElement));
-            
-                messages.add(message);
-            }
-        }
-        return messages;
-    }            
+            app.outbox.sendMessage(message);                    
+        }                        
+    }    
+    
+    protected void handleUnknownContentType(String contentType)
+            throws Exception
+    {
+        // old server API only mandated valid content type for action=outgoing
+        app.log("Warning: Unknown response type " + contentType);
+    }
     
     @Override
     protected void handleFailure()
@@ -221,16 +219,38 @@ public class HttpTask extends BaseHttpTask {
     
     @Override
     public void handleErrorResponse(HttpResponse response) throws Exception
-    {
-        Document xml = XmlUtils.parseResponse(response);
-        String error = XmlUtils.getErrorText(xml);
-        if (error != null)
+    {            
+        app.log(getErrorText(response));       
+    }
+    
+    @Override
+    protected void handleResponse(HttpResponse response) throws Exception {
+
+        String contentType = getContentType(response);
+        
+        if (contentType.startsWith("application/json"))
         {
-            app.log(error);
-        }        
+            String responseBody = IOUtils.toString(response.getEntity().getContent(), "UTF-8");
+        
+            JSONObject json = new JSONObject(responseBody);
+            
+            handleResponseJSON(json);
+        }
+        else if (contentType.startsWith("text/xml"))
+        {
+            Document xml = XmlUtils.parseResponse(response);     
+           
+            handleResponseXML(xml);
+        }
         else
         {
-            app.log("HTTP " +response.getStatusLine().getStatusCode());
+            handleUnknownContentType(contentType);
         }
+        
+        // if we get a valid server response after a connectivity error, then forward any pending messages
+        if (app.hasConnectivityError())
+        {
+            app.onConnectivityRestored();
+        }        
     }
 }

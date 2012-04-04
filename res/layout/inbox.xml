@@ -5,13 +5,17 @@
          android:layout_height="fill_parent"
          android:paddingLeft="8dp"
          android:paddingRight="8dp">
+    <Spinner android:id="@+android:id/inbox_selector"
+           android:layout_width="fill_parent"
+        android:layout_height="wrap_content">        
+    </Spinner>
      <ListView android:id="@android:id/list"
                android:layout_width="fill_parent"
                android:layout_height="fill_parent"
                android:layout_weight="1"
        />
     <TextView android:id="@android:id/empty"
-        android:text="The inbox is empty."
+        android:text="No messages found."
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
        android:layout_weight="1"

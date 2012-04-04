@@ -27,7 +27,7 @@ public class Help extends Activity {
                 
         app = (App)getApplication();
 
-        String html = "<b>EnvayaSMS " + app.getPackageInfo().versionName + "</b><br /><br />"                
+        String html = "<b>"+getText(R.string.app_name)+" " + app.getPackageInfo().versionName + "</b><br /><br />"                
             + "Menu icons cc/by www.androidicons.com<br /><br />";
         
         help.setText(Html.fromHtml(html));                        

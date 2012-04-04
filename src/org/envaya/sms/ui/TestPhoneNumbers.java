@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -20,6 +21,8 @@ public class TestPhoneNumbers extends ListActivity {
     
     private App app;
     
+    private CheckBox autoAddOutgoing;
+    
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);        
@@ -27,6 +30,9 @@ public class TestPhoneNumbers extends ListActivity {
         
         app = (App)getApplication();        
      
+        autoAddOutgoing = (CheckBox)findViewById(R.id.auto_add_outgoing);
+        autoAddOutgoing.setChecked(app.autoAddTestNumber());
+        
         ListView lv = getListView();
          lv.setOnItemClickListener(new OnItemClickListener() {
             public void onItemClick(AdapterView<?> parent, View view,
@@ -61,6 +67,13 @@ public class TestPhoneNumbers extends ListActivity {
           });        
                 
         updateTestPhoneNumbers();
+    }
+    
+    public void autoAddOutgoingClicked(View v)
+    {   
+        boolean checked = autoAddOutgoing.isChecked();
+        app.log("Test Mode: automatically add outgoing message recipients set to " + (checked ? "YES" : "NO"));
+        app.saveBooleanSetting("auto_add_test_number", checked);
     }
     
     public void updateTestPhoneNumbers()

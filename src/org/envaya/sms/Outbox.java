@@ -6,7 +6,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.SystemClock;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -18,7 +17,6 @@ import java.util.Queue;
 import java.util.Set;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
-import org.envaya.sms.receiver.OutgoingMessagePoller;
 import org.envaya.sms.task.HttpTask;
 
 public class Outbox {
@@ -81,7 +79,7 @@ public class Outbox {
         else {
             logMessage = "queued";
         }
-        String smsDesc = sms.getLogName();
+        String smsDesc = sms.getDisplayType();
 
         if (serverId != null) {
             app.log("Notifying server " + smsDesc + " " + logMessage);
@@ -115,31 +113,33 @@ public class Outbox {
         return outgoingMessages.get(uri);
     }        
     
-    public synchronized void messageSent(OutgoingMessage sms)
+    public synchronized void messageSent(OutgoingMessage message)
     {
-        sms.setProcessingState(OutgoingMessage.ProcessingState.Sent);
+        message.setProcessingState(OutgoingMessage.ProcessingState.Sent);
         
-        sms.clearSendTimeout();
+        message.clearSendTimeout();
         
-        notifyMessageStatus(sms, App.STATUS_SENT, "");
+        notifyMessageStatus(message, App.STATUS_SENT, "");
         
-        Uri uri = sms.getUri();
+        Uri uri = message.getUri();
         
         outgoingMessages.remove(uri);
         
-        addRecentSentMessage(sms);
+        addRecentSentMessage(message);
         
-        notifyChanged();
+        app.getDatabaseHelper().deletePendingMessage(message);
+        
+        notifyChanged();        
         
         numSendingOutgoingMessages--;
         maybeDequeueMessage();
     }
     
-    private synchronized void addRecentSentMessage(OutgoingMessage sms)
+    private synchronized void addRecentSentMessage(OutgoingMessage message)
     {        
-        if (sms.getServerId() != null)
+        if (message.getServerId() != null)
         {
-            Uri uri = sms.getUri();
+            Uri uri = message.getUri();
             
             recentSentMessageUris.add(uri);            
             recentSentMessageUriOrder.add(uri);
@@ -152,21 +152,23 @@ public class Outbox {
         }
     }
         
-    public synchronized void messageFailed(OutgoingMessage sms, String error)
+    public synchronized void messageFailed(OutgoingMessage message, String error)
     {
-        sms.clearSendTimeout();
+        message.clearSendTimeout();
         
-        if (sms.scheduleRetry()) 
+        if (message.scheduleRetry()) 
         {
-            sms.setProcessingState(OutgoingMessage.ProcessingState.Scheduled);
+            message.setProcessingState(OutgoingMessage.ProcessingState.Scheduled);
         }
         else
         {
-            sms.setProcessingState(OutgoingMessage.ProcessingState.None);   
+            message.setProcessingState(OutgoingMessage.ProcessingState.None);   
         }
         notifyChanged();
-        notifyMessageStatus(sms, App.STATUS_FAILED, error);
+        notifyMessageStatus(message, App.STATUS_FAILED, error);
 
+        app.getDatabaseHelper().deletePendingMessage(message);
+        
         numSendingOutgoingMessages--;
         maybeDequeueMessage();        
     }
@@ -185,18 +187,21 @@ public class Outbox {
         
         Uri uri = message.getUri();
         if (outgoingMessages.containsKey(uri)) {
-            app.debug("Duplicate outgoing " + message.getLogName() + ", skipping");
+            app.debug("Duplicate outgoing " + message.getDisplayType() + ", skipping");
             return;
         }
         
         if (recentSentMessageUris.contains(uri))
         {
-            app.debug("Outgoing " + message.getLogName() + " already sent, re-notifying server");   
+            app.debug("Outgoing " + message.getDisplayType() + " already sent, re-notifying server");   
             notifyMessageStatus(message, App.STATUS_SENT, "");
             return;
         }
 
-        outgoingMessages.put(uri, message);        
+        outgoingMessages.put(uri, message);  
+        
+        app.getDatabaseHelper().insertPendingMessage(message);
+        
         enqueueMessage(message);
     }
     
@@ -212,6 +217,8 @@ public class Outbox {
         {
             numSendingOutgoingMessages--;
         }        
+        
+        app.getDatabaseHelper().deletePendingMessage(message);
         
         notifyMessageStatus(message, App.STATUS_CANCELLED, 
                 "deleted by user");

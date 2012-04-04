@@ -3,6 +3,8 @@ package org.envaya.sms.task;
 import android.os.AsyncTask;
 import android.os.Build;
 import org.envaya.sms.App;
+import org.envaya.sms.JsonUtils;
+import org.envaya.sms.XmlUtils;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -17,6 +19,9 @@ import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.envaya.sms.R;
 
 public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
        
@@ -34,6 +39,8 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
         this.url = url;
         this.app = app;                
         params = new ArrayList<BasicNameValuePair>(Arrays.asList(paramsArr));
+        
+        params.add(new BasicNameValuePair("version", "" + app.getPackageInfo().versionCode));
     }
     
     public void addParam(String name, String value)
@@ -51,7 +58,7 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
     {
         HttpPost httpPost = new HttpPost(url);
                 
-        httpPost.setHeader("User-Agent", "EnvayaSMS/" + app.getPackageInfo().versionName + " (Android; SDK "+Build.VERSION.SDK_INT + "; " + Build.MANUFACTURER + "; " + Build.MODEL+")");
+        httpPost.setHeader("User-Agent", app.getText(R.string.app_name) + "/" + app.getPackageInfo().versionName + " (Android; SDK "+Build.VERSION.SDK_INT + "; " + Build.MANUFACTURER + "; " + Build.MODEL+")");
 
         if (useMultipartPost)
         {
@@ -83,6 +90,7 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
         try
         {
             post = makeHttpPost();
+            
             HttpClient client = app.getHttpClient();
             return client.execute(post);            
         }     
@@ -97,9 +105,10 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
                 if ((ex instanceof IOException) 
                         && message != null && message.equals("Connection already shutdown"))
                 {
-                    //app.log("Retrying request");
+                    // app.log("Retrying request");
                     post = makeHttpPost();
                     HttpClient client = app.getHttpClient();
+                    
                     return client.execute(post);  
                 }
             }
@@ -111,10 +120,35 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
         
         return null;
     }    
-    
-    public boolean isValidContentType(String contentType)
+           
+    protected String getErrorText(HttpResponse response)    
+            throws Exception
     {
-        return true; // contentType.startsWith("text/xml");
+        String contentType = getContentType(response);
+        String error = null;
+        
+        if (contentType.startsWith("application/json"))
+        {
+            JSONObject json = JsonUtils.parseResponse(response);
+            error = JsonUtils.getErrorText(json);
+        }
+        else if (contentType.startsWith("text/xml"))
+        {
+            Document xml = XmlUtils.parseResponse(response);
+            error = XmlUtils.getErrorText(xml);
+        }
+        
+        if (error == null)
+        {
+            error = "HTTP " + response.getStatusLine().getStatusCode();
+        }
+        return error;
+    }
+    
+    protected String getContentType(HttpResponse response)
+    {
+        Header contentTypeHeader = response.getFirstHeader("Content-Type");
+        return (contentTypeHeader != null) ? contentTypeHeader.getValue() : "";
     }
     
     @Override
@@ -123,24 +157,13 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
         {                
             try
             {
-                int statusCode = response.getStatusLine().getStatusCode();
-                Header contentTypeHeader = response.getFirstHeader("Content-Type");
-                String contentType = (contentTypeHeader != null) ? contentTypeHeader.getValue() : "";
-
-                boolean validContentType = isValidContentType(contentType);
-
+                int statusCode = response.getStatusLine().getStatusCode();                
+                
                 if (statusCode == 200) 
                 {
-                    if (validContentType)
-                    {
-                        handleResponse(response);
-                    }
-                    else
-                    {
-                        throw new Exception("Invalid response type " + contentType);
-                    }
+                    handleResponse(response);
                 } 
-                else if (statusCode >= 400 && statusCode <= 499 && validContentType)
+                else if (statusCode >= 400 && statusCode <= 499)
                 {
                     handleErrorResponse(response);
                     handleFailure();
@@ -174,11 +197,6 @@ public class BaseHttpTask extends AsyncTask<String, Void, HttpResponse> {
     
     protected void handleResponse(HttpResponse response) throws Exception
     {
-        // if we get a valid server response after a connectivity error, then forward any pending messages
-        if (app.hasConnectivityError())
-        {
-            app.onConnectivityRestored();
-        }
     }
     
     protected void handleErrorResponse(HttpResponse response) throws Exception

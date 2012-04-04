@@ -11,6 +11,13 @@
     android:text="@string/test_phone_numbers">                           
    </TextView>                       
    
+    <CheckBox android:id="@+id/auto_add_outgoing"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:onClick="autoAddOutgoingClicked"
+        android:text="Automatically add recipients of outgoing messages"
+    />
+   
    <ListView android:id="@android:id/list"
                android:layout_width="fill_parent"
                android:layout_height="fill_parent"

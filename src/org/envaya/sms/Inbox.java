@@ -34,7 +34,9 @@ public class Inbox {
         }
 
         incomingMessages.put(uri, message);
-        app.log("Received "+message.getDescription());
+        app.log("Received "+message.getDisplayType());
+        
+        app.getDatabaseHelper().insertPendingMessage(message);
         
         enqueueMessage(message);
     }                       
@@ -83,6 +85,8 @@ public class Inbox {
         {
             numForwardingMessages--;
         }        
+
+        app.getDatabaseHelper().deletePendingMessage(message);        
         
         app.log(message.getDescription() + " deleted");
         notifyChanged();
@@ -98,7 +102,8 @@ public class Inbox {
         }
         notifyChanged();
         
-        numForwardingMessages--;
+        numForwardingMessages--;        
+        
         maybeDequeueMessage();
     }        
     
@@ -111,17 +116,12 @@ public class Inbox {
             
         notifyChanged();
         
-        if (message instanceof IncomingMms)
-        {
-            IncomingMms mms = (IncomingMms)message;
-            if (!app.getKeepInInbox())
-            {
-                app.log("Deleting MMS " + mms.getId() + " from inbox...");
-                app.getMmsUtils().deleteFromInbox(mms);
-            }            
-        }        
-        
+        message.onForwardComplete();
+                
         numForwardingMessages--;
+        
+        app.getDatabaseHelper().deletePendingMessage(message);
+        
         maybeDequeueMessage();
     }
     

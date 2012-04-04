@@ -6,9 +6,11 @@
             android:key="enabled" 
             android:title="Enable EnvayaSMS" 
             android:defaultValue='false'
-            android:summaryOn="All new SMS will be forwarded between phone and server"
-            android:summaryOff="New SMS will not be forwarded between phone and server"
-    ></CheckBoxPreference>      
+            android:summaryOn="New messages will be forwarded between phone and server"
+            android:summaryOff="New messages will not be forwarded between phone and server"
+    ></CheckBoxPreference>            
+    
+    <PreferenceCategory android:title="Server Settings">      
       
     <EditTextPreference 
             android:key="server_url" 
@@ -37,36 +39,42 @@
             android:entries="@array/check_intervals"
             android:entryValues="@array/check_intervals_values"
     ></ListPreference>    
+    
+    </PreferenceCategory>    
+   
+    <PreferenceCategory android:title="Messaging Settings">      
 
     <CheckBoxPreference
             android:key="keep_in_inbox"
             android:title="Keep new messages"      
-            android:summaryOff="Incoming SMS will not be stored in Messaging inbox"
-            android:summaryOn="Incoming SMS will be stored in Messaging inbox"
+            android:summaryOff="Incoming messages will not be stored in Messaging inbox"
+            android:summaryOn="Incoming messages will be stored in Messaging inbox"
     ></CheckBoxPreference>
     
     <CheckBoxPreference
             android:key="call_notifications"
             android:title="Call notifications"
-            android:summaryOff="EnvayaSMS will not notify server when phone receives an incoming call"
-            android:summaryOn="EnvayaSMS will notify server when phone receives an incoming call"
-    ></CheckBoxPreference>        
-    
-    <ListPreference
-            android:key="wifi_sleep_policy" 
-            android:title="Wi-Fi sleep policy"
-            android:defaultValue="never"
-            android:entries="@array/wifi_sleep_policies"
-            android:entryValues="@array/wifi_sleep_policies_values"            
-    >           
-    </ListPreference>        
-    
+            android:summaryOff="Telerivet will not notify server when phone receives an incoming call"
+            android:summaryOn="Telerivet will notify server when phone receives an incoming call"
+    ></CheckBoxPreference>    
+        
+    <PreferenceScreen 
+        android:key="send_limit" 
+        android:title="SMS rate limit"
+        android:summary="..."
+    >
+        <intent 
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="org.envaya.sms"
+            android:targetClass="org.envaya.sms.ui.ExpansionPacks" /> 
+    </PreferenceScreen>               
+        
     <CheckBoxPreference
-            android:key="network_failover"
-            android:title="Network failover"
-            android:summaryOff="Do nothing if phone can't connect to server via Wi-Fi"
-            android:summaryOn="Automatically switch to mobile data if phone can't connect to server via Wi-Fi"
-    ></CheckBoxPreference>
+            android:key="forward_sent"
+            android:title="Forward sent messages"
+            android:summaryOff="SMS sent from Messaging app will not be forwarded to server"
+            android:summaryOn="SMS sent from Messaging app will be forwarded to server"
+    ></CheckBoxPreference>        
     
     <PreferenceScreen 
         android:key="ignored_numbers" 
@@ -77,7 +85,7 @@
             android:action="android.intent.action.MAIN"
             android:targetPackage="org.envaya.sms"
             android:targetClass="org.envaya.sms.ui.IgnoredPhoneNumbers" />
-    </PreferenceScreen>    
+    </PreferenceScreen>
     
     <CheckBoxPreference
             android:key="test_mode"
@@ -96,16 +104,114 @@
             android:action="android.intent.action.MAIN"
             android:targetPackage="org.envaya.sms"
             android:targetClass="org.envaya.sms.ui.TestPhoneNumbers" />
-    </PreferenceScreen>
+    </PreferenceScreen>        
+    
+    </PreferenceCategory>   
+    
 
-<PreferenceScreen 
-        android:key="help" 
-        android:title="About EnvayaSMS"
-    >
+    <PreferenceCategory android:title="Networking Settings">      
+    
+    <ListPreference
+            android:key="wifi_sleep_policy" 
+            android:title="Wi-Fi sleep policy"
+            android:defaultValue="never"
+            android:entries="@array/wifi_sleep_policies"
+            android:entryValues="@array/wifi_sleep_policies_values"            
+    >           
+    </ListPreference>        
+    
+    <CheckBoxPreference
+            android:key="network_failover"
+            android:title="Network failover"
+            android:summaryOff="Do nothing if phone can't connect to server via Wi-Fi"
+            android:summaryOn="Automatically switch to mobile data if phone can't connect to server via Wi-Fi"
+    ></CheckBoxPreference>
+    
+    </PreferenceCategory>    
+           
+    <PreferenceCategory android:title="AMQP Settings (Real-Time Connection)">
+    
+    <CheckBoxPreference
+            android:key="amqp_enabled"
+            android:title="Enable AMQP"
+            android:summaryOff="AMQP is disabled"
+            android:summaryOn="AMQP is enabled"
+    ></CheckBoxPreference>
+    
+    <EditTextPreference 
+            android:key="amqp_host" 
+            android:title="AMQP Host" 
+            android:inputType="textUri"
+            android:defaultValue=""
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>
+    
+    <EditTextPreference 
+            android:key="amqp_port" 
+            android:title="AMQP Port" 
+            android:inputType="number"
+            android:defaultValue="5672"
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>
+    
+    <EditTextPreference 
+            android:key="amqp_vhost" 
+            android:title="AMQP Virtual Host" 
+            android:inputType="text"
+            android:defaultValue="/"
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>
+    
+    <CheckBoxPreference
+            android:key="amqp_ssl"
+            android:title="AMQP SSL"
+            android:summaryOff="Off (Plain text)"
+            android:summaryOn="On (Encrypted)"
+            android:dependency="amqp_enabled"
+    ></CheckBoxPreference>
+    
+    <EditTextPreference
+            android:key="amqp_user"
+            android:title="AMQP User"
+            android:defaultValue=""
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>
+
+    <EditTextPreference
+            android:key="amqp_password"
+            android:title="AMQP Password"
+            android:defaultValue=""
+            android:password="true"
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>    
+    
+    <EditTextPreference
+            android:key="amqp_queue"
+            android:title="AMQP Queue Name"
+            android:defaultValue=""
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>        
+
+    <EditTextPreference 
+            android:key="amqp_heartbeat" 
+            android:title="AMQP Heartbeat (sec)" 
+            android:inputType="number"
+            android:defaultValue="60"
+            android:dependency="amqp_enabled"
+    ></EditTextPreference>
+        
+    </PreferenceCategory>    
+
+    <PreferenceCategory android:title="Help">
+    <PreferenceScreen 
+            android:key="help" 
+            android:title="About EnvayaSMS"
+        >
        <intent 
             android:action="android.intent.action.MAIN"
             android:targetPackage="org.envaya.sms"
             android:targetClass="org.envaya.sms.ui.Help" />
     </PreferenceScreen>
+    </PreferenceCategory>
 
 </PreferenceScreen>

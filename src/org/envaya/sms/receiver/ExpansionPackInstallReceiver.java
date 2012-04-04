@@ -14,6 +14,8 @@ public class ExpansionPackInstallReceiver extends BroadcastReceiver
         
         String action = intent.getAction();
         
+        boolean isInstalled = !"android.intent.action.PACKAGE_REMOVED".equals(action);
+        
         String packageName = intent.getData().getSchemeSpecificPart();
         
         if (packageName != null)

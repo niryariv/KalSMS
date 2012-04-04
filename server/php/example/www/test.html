@@ -31,13 +31,26 @@ body
 <tr><th>Phone Number</th><td><input id='phone_number' type='text' /></td></tr>
 <tr><th>Password</th><td><input id='password' type='password' /></td></tr>
 <tr><th>Log Messages</th><td><textarea id='log'  style='width:250px'></textarea></td></tr>
+<tr><th>Send Limit</th><td><input id='send_limit' value='100' type='text' /></td></tr>
+<tr><th>Settings Version</th><td><input id='settings_version' value='1' type='text' /></td></tr>
+<tr><th>Battery</th><td><input id='battery' value='100' type='text' /></td></tr>
+<tr><th>Power Source</th><td><select id='power'>
+    <option value='0'>0 (battery)</option>
+    <option value='1'>1 (USB)</option>
+    <option value='2'>2 (AC)</option>
+</select></td></tr>
+<tr><th>Network Type</th><td><input id='network' value='WIFI' type='text' /></td></tr>
+<tr><th>Current Timestamp</th><td><input id='now' type='text' /></td></tr>
+
 <tr><th>Action</th><td><select id='action' onchange='actionChanged()' onkeypress='actionChanged()'>
     <option value='incoming'>incoming</option>
     <option value='outgoing'>outgoing</option>
     <option value='send_status'>send_status</option>
     <option value='device_status'>device_status</option>
     <option value='test'>test</option>
+    <option value='amqp_started'>amqp_started</option>    
 </select></td></tr>
+
 </table>
 
 <div id='action_incoming'>
@@ -47,6 +60,7 @@ body
 <tr><th>Message Type</th><td><select id='message_type'>
     <option value='sms'>sms</option>
     <option value='mms'>mms</option>
+    <option value='call'>call</option>
 </select></td></tr>
 <tr><th>Message</th><td><textarea id='message' style='width:250px'></textarea></td></tr>
 <tr><th>Timestamp</th><td><input id='timestamp' type='text' /></td></tr>
@@ -64,6 +78,7 @@ body
     <option value='sent'>sent</option>
     <option value='failed'>failed</option>
     <option value='queued'>queued</option>    
+    <option value='cancelled'>cancelled</option>    
 </select></td></tr>
 <tr><th>Error Message</th><td><input id='error' type='text' size='50' /></td></tr>
 </table>
@@ -80,10 +95,16 @@ body
     <option value='power_disconnected'>power_disconnected</option>
     <option value='battery_low'>battery_low</option>    
     <option value='battery_okay'>battery_okay</option>    
+    <option value='send_limit_exceeded'>send_limit_exceeded</option>        
 </select></td></tr>
 </table>
 </div>
-
+<div id='action_amqp_started' style='display:none'>
+<h4>Parameters for action=amqp_started:</h4>
+<table class='smsTable'>
+<tr><th>Consumer Tag</th><td><input id='consumer_tag' type='text' /></td></tr>
+</table>
+</div>
 
 <script type='text/javascript'>
 
@@ -110,11 +131,17 @@ function performAction() {
     var action = $('action').value;
     
     var params = {
-        version: '13',
+        version: '29',
         phone_number: $('phone_number').value,
         action: action,
-        log: $('log').value
-    };  
+        log: $('log').value,
+        send_limit: $('send_limit').value,
+        settings_version: $('settings_version').value,
+        battery: $('battery').value,
+        power: $('power').value,
+        network: $('network').value,
+        now: $('now').value
+    };
     
     if (action == 'incoming')
     {
@@ -132,6 +159,10 @@ function performAction() {
     else if (action == 'device_status')
     {
         params.status = $('device_status').value;
+    }
+    else if (action == 'amqp_started')
+    {
+        params.status = $('consumer_tag').value;
     }
             
     var xhr = (window.ActiveXObject && !window.XMLHttpRequest) ? new ActiveXObject("Msxml2.XMLHTTP") : new XMLHttpRequest();
@@ -189,8 +220,9 @@ function performAction() {
     xhr.send(paramStr);    
 }
 
-$('server_url').value = location.href.replace("test.html","");
+$('server_url').value = location.href.replace("test.html","gateway.php");
 $('timestamp').value = new Date().getTime();
+$('now').value = new Date().getTime();
 
 </script>
 

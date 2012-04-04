@@ -7,39 +7,42 @@ import android.net.Uri;
 import java.util.*;
 
 /*
- * Utilities for parsing IncomingMms from the MMS content provider tables,
- * as defined by android.provider.Telephony
+ * Utilities for parsing MMS and SMS messages from the content provider tables 
+ * of the Messaging app, as defined by android.provider.Telephony
  * 
- * Analogous to com.google.android.mms.pdu.PduPersister from 
+ * MMS parsing is analogous to com.google.android.mms.pdu.PduPersister from 
  * core/java/com/google/android/mms/pdu in the base Android framework
  * (https://github.com/android/platform_frameworks_base)
  */
-public class MmsUtils
+public class MessagingUtils
 {
     // constants from android.provider.Telephony
-    public static final Uri OBSERVER_URI = Uri.parse("content://mms-sms/");        
-    public static final Uri INBOX_URI = Uri.parse("content://mms/inbox");        
-    public static final Uri PART_URI = Uri.parse("content://mms/part");    
+    public static final Uri MMS_INBOX_URI = Uri.parse("content://mms/inbox");        
+    public static final Uri MMS_PART_URI = Uri.parse("content://mms/part");    
+    
+    public static final Uri SENT_SMS_URI = Uri.parse("content://sms/sent");
     
     // constants from com.google.android.mms.pdu.PduHeaders  
     private static final int PDU_HEADER_FROM = 0x89;    
     private static final int MESSAGE_TYPE_RETRIEVE_CONF = 0x84;
     
-    // todo -- prevent unbounded growth?
+    // todo -- prevent (very slow) unbounded growth?
     private final Set<Long> seenMmsIds = new HashSet<Long>();
+    
+    private final Set<Long> seenSentSmsIds = new HashSet<Long>();
     
     private App app;
     private ContentResolver contentResolver;
     
-    public MmsUtils(App app)
+    public MessagingUtils(App app)
     {
         this.app = app;
         this.contentResolver = app.getContentResolver();
     }
     
-    private List<MmsPart> getMmsParts(long id)
+    public List<MmsPart> getMmsParts(long id)
     {        
-        Cursor cur = contentResolver.query(PART_URI, new String[] {
+        Cursor cur = contentResolver.query(MMS_PART_URI, new String[] {
             "_id", "ct", "name", "text", "cid", "_data"
         }, "mid = ?", new String[] { "" + id }, null);
 
@@ -67,7 +70,8 @@ public class MmsUtils
             
             if (name == null || name.length() == 0)
             {
-                name = UUID.randomUUID().toString(); 
+                // POST request for incoming MMS will fail if the filename is empty
+                name = UUID.randomUUID().toString().substring(0, 8); 
             }
             
             part.setName(name);
@@ -90,7 +94,7 @@ public class MmsUtils
     /*
      * see com.google.android.mms.pdu.PduPersister.loadAddress
      */
-    private String getSenderNumber(long mmsId) {
+    public String getMmsSenderNumber(long mmsId) {
         
         Uri uri = Uri.parse("content://mms/"+mmsId+"/addr");
 
@@ -112,44 +116,41 @@ public class MmsUtils
 
         return address;
     }
+    
+    public List<IncomingMms> getMessagesInMmsInbox()
+    {
+        return getMessagesInMmsInbox(false);
+    }
 
-    public List<IncomingMms> getMessagesInInbox()
+    public synchronized List<IncomingMms> getMessagesInMmsInbox(boolean newMessagesOnly)
     {
         // the M-Retrieve.conf messages are the 'actual' MMS messages        
         String m_type = "" + MESSAGE_TYPE_RETRIEVE_CONF;
 
-        Cursor c = contentResolver.query(INBOX_URI, 
+        Cursor c = contentResolver.query(MMS_INBOX_URI, 
                 new String[] {"_id", "ct_l", "date"}, 
-                "m_type = ? ", new String[] { m_type }, null);
+                "m_type = ? ", new String[] { m_type }, 
+                "_id desc limit 30");
         
         List<IncomingMms> messages = new ArrayList<IncomingMms>();        
         
         while (c.moveToNext())
         {         
-            long id = c.getLong(0);                               
-            long date = c.getLong(2);
+            long id = c.getLong(0);         
             
-            String from = getSenderNumber(id);                        
-            
-            if (from == null)
+            if (newMessagesOnly && seenMmsIds.contains(id))
             {
-                app.log("Ignoring MMS "+id+" for now because sender number is null");
+                // avoid fetching all the info for old MMS messages if we're only interested in new ones
                 continue;
-            }            
+            }
+            
+            long date = c.getLong(2);            
             
             IncomingMms mms = new IncomingMms(app, 
-                from, 
                 date * 1000, // MMS timestamp is in seconds for some reason, 
                              // while everything else is in ms
                 id);
-            
-            mms.setContentLocation(c.getString(1));
                         
-            for (MmsPart part : getMmsParts(id))
-            {
-                mms.addPart(part);
-            }
-
             messages.add(mms);
         }
         c.close();
@@ -157,9 +158,9 @@ public class MmsUtils
         return messages;
     }
     
-    public synchronized boolean deleteFromInbox(IncomingMms mms)
+    public synchronized boolean deleteFromMmsInbox(IncomingMms mms)
     {        
-        long id = mms.getId();
+        long id = mms.getMessagingId();
                 
         Uri uri = Uri.parse("content://mms/inbox/" + id);            
         int res = contentResolver.delete(uri, null, null);
@@ -181,15 +182,53 @@ public class MmsUtils
         return res  > 0;
     }
     
-    public synchronized void markOldMms(IncomingMms mms)
+    public synchronized void markSeenMms(IncomingMms mms)
     {
-        long id = mms.getId();        
+        long id = mms.getMessagingId();        
         seenMmsIds.add(id);
     }
     
-    public synchronized boolean isNewMms(IncomingMms mms)
+    public synchronized List<IncomingSms> getSentSmsMessages()
     {
-        long id = mms.getId();        
-        return !seenMmsIds.contains(id);
+        return getSentSmsMessages(false);
     }
+    
+    public synchronized List<IncomingSms> getSentSmsMessages(boolean newMessagesOnly)
+    {
+        Cursor c = contentResolver.query(SENT_SMS_URI,
+                new String[]{"_id", "address", "body", "date"}, null, null,
+                "_id desc limit 30");
+        
+        // SMS messages sent via Messaging app are considered as IncomingSms (with direction=Direction.Sent) 
+        // because they're incoming to the server (whereas OutgoingSms would indicate a message we will try to send)
+        List<IncomingSms> messages = new ArrayList<IncomingSms>();        
+        
+        while (c.moveToNext())
+        {         
+            long id = c.getLong(0);         
+            
+            if (newMessagesOnly && seenSentSmsIds.contains(id))
+            {
+                continue;
+            }
+            
+            IncomingSms sms = new IncomingSms(app);
+            sms.setMessagingId(id);
+            sms.setTo(c.getString(1));
+            sms.setMessageBody(c.getString(2));
+            sms.setTimestamp(c.getLong(3));
+            sms.setDirection(IncomingSms.Direction.Sent);
+            
+            messages.add(sms);
+        }
+        c.close();
+        
+        return messages;
+    }
+    
+    public synchronized void markSeenSentSms(IncomingSms sms)
+    {
+        long id = sms.getMessagingId();
+        seenSentSmsIds.add(id);
+    }    
 }        

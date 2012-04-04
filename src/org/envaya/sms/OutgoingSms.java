@@ -11,9 +11,9 @@ public class OutgoingSms extends OutgoingMessage {
         super(app);
     }    
     
-    public String getLogName()
+    public String getMessageType()
     {
-        return "SMS";
+        return App.MESSAGE_TYPE_SMS;
     }
 
     private ArrayList<String> _bodyParts;
@@ -65,7 +65,7 @@ public class OutgoingSms extends OutgoingMessage {
         
         if (numRetries == 0)
         {
-            app.log("Sending " + getDescription());
+            app.log("Sending " + getDisplayType());
         }
         else
         {        
@@ -105,9 +105,16 @@ public class OutgoingSms extends OutgoingMessage {
         
         if (!app.isForwardablePhoneNumber(to))
         {
-            // this is mostly to prevent accidentally sending real messages to
-            // random people while testing...
-            throw new ValidationException("Destination address is not allowed");
+            if (app.isTestMode() && app.autoAddTestNumber())
+            {
+                app.addTestPhoneNumber(to);
+            }
+            else
+            {
+                // this is mostly to prevent accidentally sending real messages to
+                // random people while testing...
+                throw new ValidationException("Destination address is not allowed");
+            }
         }
         
         String messageBody = getMessageBody();

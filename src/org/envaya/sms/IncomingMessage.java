@@ -8,14 +8,29 @@ import org.apache.http.message.BasicNameValuePair;
 
 public abstract class IncomingMessage extends QueuedMessage {
 
-    protected String from;
+    protected String from;  // phone number of other party, for messages with direction=Direction.Incoming
+    
+    protected String to;    // phone number of other party, for messages with direction=Direction.Sent
+    
+    protected Direction direction = Direction.Incoming;    
+    
+    protected long messagingId; // _id from Messaging app content provider tables (if applicable)
+
     protected String message = "";
     protected long timestamp; // unix timestamp in milliseconds
     
-    protected long timeReceived; // SystemClock.elapsedRealtime
+    protected long timeCreated; // SystemClock.elapsedRealtime
     
     private ProcessingState state = ProcessingState.None;
         
+    public enum Direction
+    {
+        Incoming,   // a message that was received by this phone
+        
+        Sent        // Message was sent via Messaging app (so it's "Incoming" from 
+                    // the phone to the server, but we don't actually send it)
+    }
+    
     public enum ProcessingState
     {
         None,           // not doing anything with this sms now... just sitting around
@@ -25,13 +40,33 @@ public abstract class IncomingMessage extends QueuedMessage {
         Forwarded
     }    
     
+    public IncomingMessage(App app)
+    {
+        super(app);
+    }
+    
     public IncomingMessage(App app, String from, long timestamp)
     {
         super(app);
-        this.from = from;
-        this.timestamp = timestamp;
         
-        this.timeReceived = SystemClock.elapsedRealtime();
+        if (from == null)
+        {
+            from = "";
+        }
+        
+        this.from = from;
+        this.timestamp = timestamp;        
+        this.timeCreated = SystemClock.elapsedRealtime();
+    }
+        
+    public void setDirection(Direction direction)
+    {
+        this.direction = direction;
+    }
+    
+    public Direction getDirection()
+    {
+        return this.direction;
     }
     
     public String getMessageBody()
@@ -39,14 +74,24 @@ public abstract class IncomingMessage extends QueuedMessage {
         return message;
     }    
     
+    public void setMessageBody(String message)
+    {
+        this.message = message;
+    }
+    
     public long getAge()
     {
-        return SystemClock.elapsedRealtime() - timeReceived;
+        return SystemClock.elapsedRealtime() - timeCreated;
     }
     
     public long getTimestamp()
     {
         return timestamp;
+    }
+    
+    public void setTimestamp(long timestamp)
+    {
+        this.timestamp = timestamp;
     }
     
     public ProcessingState getProcessingState()
@@ -61,14 +106,47 @@ public abstract class IncomingMessage extends QueuedMessage {
     
     public boolean isForwardable()
     {
-        return app.isForwardablePhoneNumber(from);
+        if (direction == Direction.Sent)
+        {
+            return app.isForwardingSentMessagesEnabled() && app.isForwardablePhoneNumber(to);
+        }
+        else
+        {
+            return app.isForwardablePhoneNumber(from);
+        }
     }
     
     public String getFrom()
     {
         return from;
     }
-     
+    
+    public void setFrom(String from)
+    {
+        this.from = from;
+    }
+    
+    public String getTo()
+    {
+        return to;
+    }
+    
+    public void setTo(String to)
+    {
+        this.to = to;
+    }
+        
+    public long getMessagingId()
+    {
+        return messagingId;
+    }
+    
+    public void setMessagingId(long messagingId)
+    {
+        this.messagingId = messagingId;
+    }
+        
+    
     protected Intent getRetryIntent() {
         Intent intent = new Intent(app, IncomingMessageRetry.class);
         intent.setData(this.getUri());
@@ -92,7 +170,14 @@ public abstract class IncomingMessage extends QueuedMessage {
     
     public String getDescription()
     {
-        return getDisplayType() + " from " + getFrom();
+        if (direction == Direction.Sent)
+        {
+            return "Sent " + getDisplayType() + " to " + getTo();
+        }
+        else
+        {
+            return getDisplayType() + " from " + getFrom();
+        }
     }
     
     public void tryForwardToServer()
@@ -107,15 +192,30 @@ public abstract class IncomingMessage extends QueuedMessage {
     
     public abstract String getMessageType();
     
+    public void onForwardComplete()
+    {
+        
+    }
+    
     protected ForwarderTask getForwarderTask()
     {
-        return new ForwarderTask(this,
+        ForwarderTask task = new ForwarderTask(this,
             new BasicNameValuePair("message_type", getMessageType()),
             new BasicNameValuePair("message", getMessageBody()),
-            new BasicNameValuePair("action", App.ACTION_INCOMING),
-            new BasicNameValuePair("from", getFrom()),
-            new BasicNameValuePair("timestamp", "" + getTimestamp()),
-            new BasicNameValuePair("age", "" + getAge())
+            new BasicNameValuePair("timestamp", "" + getTimestamp())
         );
+        
+        if (direction == Direction.Sent)
+        {
+            task.addParam("action", App.ACTION_FORWARD_SENT);
+            task.addParam("to", getTo());
+        }
+        else
+        {
+            task.addParam("action", App.ACTION_INCOMING);
+            task.addParam("from", getFrom());
+        }
+
+        return task;
     }
 }

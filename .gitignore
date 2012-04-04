@@ -1,4 +1,5 @@
-local.properties
 bin
 gen
 nbandroid
+private
+local.properties

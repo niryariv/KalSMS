@@ -1,46 +1,33 @@
 <?php
 
 /*
- * Command line script to simulate sending an outgoing SMS from the server.
+ * Command line script to send an outgoing SMS from the server.
  *
- * The message will be queued on the server until the next time 
- * EnvayaSMS checks for outgoing messages.
+ * This example script queues outgoing messages using the local filesystem.
+ * The messages are sent the next time EnvayaSMS sends an ACTION_OUTGOING request to www/gateway.php.
  */
 
 require_once __DIR__."/config.php";
+require_once dirname(__DIR__)."/EnvayaSMS.php";
 
-$arg_len = sizeof($argv);
-
-if ($arg_len == 4)
-{
-    $from = $argv[1];
-    $to = $argv[2];
-    $message = $argv[3];
-}
-else if ($arg_len == 3)
+if (sizeof($argv) == 3)
 {    
-    $from = $PHONE_NUMBERS[0];
     $to = $argv[1];
-    $message = $argv[2];
+    $body = $argv[2];
 }
 else
 {
-    error_log("Usage: php send_sms.php [<from>] <to> \"<message>\"");
-    error_log("Examples: ");
-    error_log("     php send_sms.php 16505551212 16504449876 \"hello world\"");
+    error_log("Usage: php send_sms.php <to> \"<message>\"");
+    error_log("Example: ");
     error_log("     php send_sms.php 16504449876 \"hello world\"");
     die;
 }
 
-$id = uniqid("");
+$message = new EnvayaSMS_OutgoingMessage();
+$message->id = uniqid("");
+$message->to = $to;
+$message->message = $body;
 
-$filename = "$OUTGOING_DIR_NAME/$id.json";
-
-file_put_contents($filename, json_encode(array(
-    'from' => $from,
-    'to' => $to,
-    'message' => $message,
-    'id' => $id
-)));
-
-echo "Message $id added to outgoing queue\n";
+file_put_contents("$OUTGOING_DIR_NAME/{$message->id}.json", json_encode($message));
+    
+echo "Message {$message->id} added to filesystem queue\n";

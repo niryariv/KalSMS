@@ -4,7 +4,6 @@ package org.envaya.sms.task;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 import org.envaya.sms.App;
-import org.envaya.sms.OutgoingMessage;
 
 public class PollerTask extends HttpTask {
 
@@ -13,21 +12,15 @@ public class PollerTask extends HttpTask {
     }
 
     @Override
-    public boolean isValidContentType(String contentType)
-    {
-        return contentType.startsWith("text/xml");
-    }    
-    
-    @Override
     protected void onPostExecute(HttpResponse response) {
         super.onPostExecute(response);
         app.markPollComplete();
     }
     
     @Override
-    protected void handleResponse(HttpResponse response) throws Exception {
-        for (OutgoingMessage reply : parseResponseXML(response)) {
-            app.outbox.sendMessage(reply);
-        }
+    protected void handleUnknownContentType(String contentType)
+            throws Exception
+    {
+        throw new Exception("Invalid response type " + contentType);
     }
 }

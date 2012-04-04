@@ -14,11 +14,28 @@ public abstract class QueuedMessage
     protected int numRetries = 0;
     protected Date dateCreated = new Date();
     public App app;   
+    
+    protected long persistedId = 0; // _id of row in pending_incoming_messages or pending_outgoing_messages table (0 if not stored)
 
     public QueuedMessage(App app)
     {
         this.app = app;
     }
+    
+    public boolean isPersisted()
+    {
+        return persistedId != 0;
+    }
+    
+    public long getPersistedId()
+    {
+        return persistedId;
+    }
+    
+    public void setPersistedId(long id)
+    {
+        this.persistedId = id;
+    }        
     
     public Date getDateCreated()
     {

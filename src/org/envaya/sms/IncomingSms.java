@@ -5,7 +5,6 @@ import android.net.Uri;
 import android.telephony.SmsMessage;
 import java.security.InvalidParameterException;
 import java.util.List;
-import org.envaya.sms.task.ForwarderTask;
 
 
 public class IncomingSms extends IncomingMessage {
@@ -34,12 +33,11 @@ public class IncomingSms extends IncomingMessage {
             message = message + smsPart.getMessageBody();
         }
     }
-    
-    // constructor for SMS retrieved from Messaging inbox
-    public IncomingSms(App app, String from, String message, long timestampMillis) {
-        super(app, from, timestampMillis);
-        this.message = message;
-    }                
+        
+    public IncomingSms(App app)
+    {
+        super(app);
+    }
     
     public String getDisplayType()
     {

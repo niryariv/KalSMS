@@ -31,11 +31,17 @@ public class CheckConnectivityTask extends AsyncTask<String, Void, Boolean> {
     {   
         try
         {
+            Thread.sleep(1000);
+            
             InetAddress addr = InetAddress.getByName(hostName);
             if (addr.isReachable(App.HTTP_CONNECTION_TIMEOUT))
             {
                 return true;
             }
+        }
+        catch (InterruptedException ex)
+        {
+            
         }
         catch (IOException ex)
         {

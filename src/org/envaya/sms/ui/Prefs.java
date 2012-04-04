@@ -1,15 +1,16 @@
 package org.envaya.sms.ui;
 
 import android.content.SharedPreferences;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.Context;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
-import android.preference.EditTextPreference;
-import android.preference.ListPreference;
-import android.preference.Preference;
-import android.preference.PreferenceActivity;
-import android.preference.PreferenceScreen;
+import android.preference.*;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
+import android.text.method.PasswordTransformationMethod;
 import android.view.Menu;
 import org.envaya.sms.App;
 import org.envaya.sms.R;
@@ -17,6 +18,14 @@ import org.envaya.sms.R;
 public class Prefs extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 
     private App app;
+    
+    private BroadcastReceiver installReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {  
+            PreferenceScreen screen = getPreferenceScreen();
+            updatePrefSummary(screen.findPreference("send_limit"));
+        }
+    };        
     
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -32,8 +41,19 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         {
             updatePrefSummary(screen.getPreference(i));
         }
+        
+        IntentFilter installReceiverFilter = new IntentFilter();        
+        installReceiverFilter.addAction(App.EXPANSION_PACKS_CHANGED_INTENT);        
+        registerReceiver(installReceiver, installReceiverFilter);                
     }    
-
+    
+    @Override
+    public void onDestroy()
+    {        
+        unregisterReceiver(installReceiver);        
+        super.onDestroy();
+    }    
+    
     @Override 
     protected void onResume(){
         super.onResume();
@@ -50,10 +70,20 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) { 
         
-
         if (key.equals("outgoing_interval"))
         {            
             app.setOutgoingMessageAlarm();
+        }
+        else if (key.startsWith("amqp_"))
+        {
+            if (app.isAmqpEnabled())
+            {
+                app.getAmqpConsumer().startAsync();
+            }
+            else
+            {
+                app.getAmqpConsumer().stopAsync();
+            }                
         }
         else if (key.equals("wifi_sleep_policy"))
         {
@@ -107,15 +137,21 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
         }
         else if (key.equals("enabled"))
         {
-            app.log(app.isEnabled() ? "SMS Gateway started." : "SMS Gateway stopped.");
+            app.log(app.isEnabled() ? getText(R.string.started) : getText(R.string.stopped));
             app.enabledChanged();
         }
         
+        sendBroadcast(new Intent(App.SETTINGS_CHANGED_INTENT));
         updatePrefSummary(findPreference(key));
     }    
 
     private void updatePrefSummary(Preference p)
     {
+        if (p == null)
+        {
+            return;
+        }
+        
         String key = p.getKey();
         
         if ("wifi_sleep_policy".equals(key))
@@ -144,10 +180,31 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
                     p.setSummary("Wi-Fi will stay connected when the phone sleeps");
                     break;
             }
-        }
+        }    
+        else if ("send_limit".equals(key))
+        {
+            int limit = app.getOutgoingMessageLimit();
+            String limitStr = "Send up to " + limit + " SMS per hour.";
+            
+            if (limit < 300)
+            {
+                limitStr += "\nClick to increase limit...";
+            }
+            
+            p.setSummary(limitStr);
+        }        
         else if ("help".equals(key))
         {
             p.setSummary(app.getPackageInfo().versionName);
+        }
+        else if (p instanceof PreferenceCategory)
+        {
+            PreferenceCategory category = (PreferenceCategory)p;
+            int numPreferences = category.getPreferenceCount();
+            for (int i = 0; i < numPreferences; i++)
+            {
+                updatePrefSummary(category.getPreference(i));
+            }                    
         }
         else if (p instanceof ListPreference) {
             p.setSummary(((ListPreference)p).getEntry()); 
@@ -160,7 +217,7 @@ public class Prefs extends PreferenceActivity implements OnSharedPreferenceChang
             {            
                 p.setSummary("(not set)"); 
             }            
-            else if (p.getKey().equals("password"))
+            else if (textPref.getEditText().getTransformationMethod() instanceof PasswordTransformationMethod)
             {
                 p.setSummary("********");
             }
