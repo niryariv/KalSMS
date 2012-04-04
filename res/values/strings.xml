@@ -7,6 +7,7 @@
     <string name="stopped">EnvayaSMS stopped.</string>
     <string name="log_view_title">EnvayaSMS : Log View</string>
     <string name="add_phone_title">EnvayaSMS : Add Phone</string>    
+    <string name="expansion_packs_title">EnvayaSMS : SMS Rate Limit</string>    
     <string name="help_title">EnvayaSMS : Help</string>    
     <string name='test_phone_numbers_title'>EnvayaSMS : Test Phone Numbers</string>
     <string name='ignored_phone_numbers_title'>EnvayaSMS : Ignored Phone Numbers</string>
@@ -21,7 +22,7 @@
     <string name="retry_now">Retry</string>
     <string name="forward_saved">Fwd Saved...</string>
     <string name='service_started'>New messages will be forwarded to server</string>
-    <string name='test_phone_numbers'>When running Telerivet in Test Mode, 
+    <string name='test_phone_numbers'>When running EnvayaSMS in Test Mode, 
 EnvayaSMS will only forward SMS messages from the phone numbers 
 listed below. (Incoming SMS messages from other phone numbers will be saved 
 in the normal Messaging inbox.)</string>

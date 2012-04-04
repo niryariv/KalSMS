@@ -54,8 +54,8 @@
     <CheckBoxPreference
             android:key="call_notifications"
             android:title="Call notifications"
-            android:summaryOff="Telerivet will not notify server when phone receives an incoming call"
-            android:summaryOn="Telerivet will notify server when phone receives an incoming call"
+            android:summaryOff="EnvayaSMS will not notify server when phone receives an incoming call"
+            android:summaryOn="EnvayaSMS will notify server when phone receives an incoming call"
     ></CheckBoxPreference>    
         
     <PreferenceScreen 

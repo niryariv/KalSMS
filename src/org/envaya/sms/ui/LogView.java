@@ -146,11 +146,7 @@ public class LogView extends Activity {
 
         if (savedInstanceState == null)
         {
-            if (getIntent().getBooleanExtra("configured", false))
-            {
-                showConfigureSuccessDialog();
-            }
-            else if (app.isUpgradeAvailable())
+            if (app.isUpgradeAvailable())
             {
                 showUpgradeDialog();         
             }
@@ -161,17 +157,13 @@ public class LogView extends Activity {
             if (curDialog == UPGRADE_DIALOG)
             {
                 showUpgradeDialog();                
-            }
-            else if (curDialog == CONFIGURE_SUCCESS_DIALOG)
-            {
-                showConfigureSuccessDialog();
-            }
+            }            
             else if (curDialog == SETTINGS_DIALOG)
             {
                 showSettingsDialog();
             }
         }
-    }    
+    }
 
     public static final int NO_DIALOG = 0;
     public static final int UPGRADE_DIALOG = 1;
@@ -234,25 +226,7 @@ public class LogView extends Activity {
             .setOnCancelListener(new DismissDialogListener())
             .setCancelable(true)
             .show();
-    }
-    
-    public void showConfigureSuccessDialog()
-    {
-        curDialog = CONFIGURE_SUCCESS_DIALOG;
-        
-        new AlertDialog.Builder(this)
-            .setTitle("App configured successfully!")
-            .setMessage("Now try using another mobile phone to send a SMS to this phone.\n\nYou should be able to see the message on your Messages page on telerivet.com, and send replies.")
-            .setPositiveButton("OK", new OnClickListener() {
-                public void onClick(DialogInterface dialog, int i)
-                {
-                    showSettingsDialog();
-                }
-            })                
-            .setOnCancelListener(new DismissDialogListener())
-            .setCancelable(true)
-            .show();        
-    }
+    }    
     
     public String getSettingsSummary()
     {

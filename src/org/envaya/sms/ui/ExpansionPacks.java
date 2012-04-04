@@ -52,7 +52,7 @@ public class ExpansionPacks extends PreferenceActivity  {
         
         String basePackageName = app.getPackageName();
         
-        this.setTitle("Telerivet : SMS Rate Limit ("+app.getOutgoingMessageLimit()+")");
+        this.setTitle(getText(R.string.expansion_packs_title)+" ("+app.getOutgoingMessageLimit()+")");
         
         for(int i=0; i < numPrefs;i++)
         {

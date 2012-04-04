@@ -231,7 +231,7 @@ public class AmqpConsumer {
         {                
             if (wifiLock == null)
             {
-                wifiLock = wifiManager.createWifiLock(WIFI_MODE_FULL_HIGH_PERF, "telerivet-amqp");        
+                wifiLock = wifiManager.createWifiLock(WIFI_MODE_FULL_HIGH_PERF, "amqp-consumer");        
                 wifiLock.setReferenceCounted(false);
             }
             
