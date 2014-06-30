@@ -10,14 +10,14 @@ import android.util.Log;
 
 
 public class Prefs extends PreferenceActivity {
-	
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		addPreferencesFromResource(R.xml.prefs);
 	}
-	
+
 	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
 	    Preference pref = findPreference(key);
 

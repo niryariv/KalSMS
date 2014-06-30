@@ -27,7 +27,7 @@ package kalsms.niryariv.itp;
 //	    	    final String s = new String(baf.toByteArray());
 ////	    	    mHandler.post(showUpdate);
 //	    	} catch (Exception e) {
-//	    		// 
+//	    		//
 //	    	}
 //	    }
 //	};
