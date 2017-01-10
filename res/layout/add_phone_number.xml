@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EditText xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/add_phone_number_text"
+    android:layout_width="fill_parent"
+    android:inputType="phone"
+    android:layout_height="wrap_content">                           
+</EditText>

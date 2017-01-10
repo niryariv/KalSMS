@@ -1,0 +1,44 @@
+
+Except for the parts noted otherwise (see Third-Party Libraries section below), 
+EnvayaSMS' source code is licensed under the MIT license:
+
+-----
+
+Copyright (C) 2011 by Nir Yariv, Jesse Young
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+=====================
+Third-Party Libraries
+=====================
+
+libs/httpmime-4.1.2.jar is (c) Apache Software Foundation
+    released under Apache License, Version 2.0 
+
+org.envaya.sms.Base64Coder is (c) 2003-2010 Christian d'Heureuse,
+    released under MIT License (and others)
+    
+org.envaya.sms.App.chooseOutgoingSmsPackage and 
+org.envaya.sms.ForegroundService include code from Android,
+    Copyright 2005-2009 The Android Open Source Project
+    See NOTICE
+    
+server/php/example/www/test.html uses code from crypto-js,
+    Copyright (c) 2011, Jeff Mott,
+    released under new BSD license

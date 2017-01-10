@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hello">SMS Gateway Running.\n</string>
-    <string name="app_name">KalSMS</string>
+    <string name="app_name">EnvayaSMS</string>
+    <string name="running">EnvayaSMS running</string>
+    <string name="disabled">EnvayaSMS disabled</string>
+    <string name="started">EnvayaSMS started.</string>
+    <string name="stopped">EnvayaSMS stopped.</string>
+    <string name="log_view_title">EnvayaSMS : Log View</string>
+    <string name="add_phone_title">EnvayaSMS : Add Phone</string>    
+    <string name="expansion_packs_title">EnvayaSMS : SMS Rate Limit</string>    
+    <string name="help_title">EnvayaSMS : Help</string>    
+    <string name='test_phone_numbers_title'>EnvayaSMS : Test Phone Numbers</string>
+    <string name='ignored_phone_numbers_title'>EnvayaSMS : Ignored Phone Numbers</string>
+    <string name='forward_saved_title'>EnvayaSMS : Forward Saved Messages</string>
+    <string name='pending_messages_title'>EnvayaSMS : Pending Messages</string>
+    <string name='settings_title'>EnvayaSMS : Settings</string>
+    <string name="settings">Settings</string>
+    <string name="test">Test Connection</string>
+    <string name="check_now">Check Messages</string>
+    <string name="help">Help</string>
+    <string name="pending">Pending Msgs...</string>
+    <string name="retry_now">Retry</string>
+    <string name="forward_saved">Fwd Saved...</string>
+    <string name='service_started'>New messages will be forwarded to server</string>
+    <string name='test_phone_numbers'>When running EnvayaSMS in Test Mode, 
+EnvayaSMS will only forward SMS messages from the phone numbers 
+listed below. (Incoming SMS messages from other phone numbers will be saved 
+in the normal Messaging inbox.)</string>
+    <string name='ignored_phone_numbers'>
+EnvayaSMS will ignore SMS messages from the phone numbers listed below. 
+Incoming messages from these senders will be saved in the normal Messaging inbox.</string>
 </resources>

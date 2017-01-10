@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content" 
+    android:background="#333333">           
+<TextView 
+    android:id="@+id/pending_address" 
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"  
+    android:textColor="#FFFFFF" 
+    android:layout_marginTop="4sp"
+    android:layout_marginLeft="6sp"
+    android:focusable="false" 
+    android:textSize="14sp"></TextView>    
+<TextView
+    android:id="@+id/pending_time"     
+    android:layout_below="@id/pending_address"
+    android:layout_alignLeft="@id/pending_address"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"     
+    android:layout_marginLeft="6sp"
+    android:textColor="#CCCCCC" 
+    android:focusable="false" 
+    android:textSize="14sp"></TextView>
+<TextView 
+    android:id="@+id/pending_status"     
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"     
+    android:textColor="#CCCCCC" 
+    android:focusable="false" 
+    android:paddingBottom="6sp"
+    android:layout_marginLeft="6sp"
+    android:textSize="14sp"></TextView>
+</LinearLayout>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/settings"
+          android:icon="@drawable/ic_menu_equalizer"
+          android:title="@string/settings" />
+    <item android:id="@+id/test"          
+            android:icon="@drawable/ic_menu_link"
+          android:title="@string/test" />
+    <item android:id="@+id/check_now"
+            android:icon="@drawable/ic_menu_tick"
+          android:title="@string/check_now" />          
+    <item android:id="@+id/forward_saved"
+            android:icon="@drawable/ic_menu_dialog"
+          android:title="@string/forward_saved" />                    
+    <item android:id="@+id/retry_now"
+            android:icon="@drawable/ic_menu_magnet"
+          android:title="@string/retry_now" />          
+    <item android:id="@+id/pending"
+            android:icon="@drawable/ic_menu_dialog"
+          android:title="@string/pending" />                    
+          
+</menu>

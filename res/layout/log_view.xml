@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:background="#333333">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content" 
+    android:clickable="true"
+    android:onClick="infoClicked"
+    android:padding="10px"
+    android:background="#666666">
+<TextView 
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:id="@+id/heading" 
+    android:textSize="15sp"
+    android:textColor="#FFFFFF" 
+    android:gravity="center" 
+    ></TextView>
+<TextView 
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:textColor="#FFFFFF" 
+    android:gravity="center" 
+    android:id="@+id/info" 
+></TextView>
+</LinearLayout>
+<ScrollView android:id="@+id/log_scroll" android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:layout_weight="1">
+<TextView 
+    android:layout_width="fill_parent" 
+    android:layout_height="fill_parent" 
+    android:id="@+id/log" 
+    android:textColor="#FFFFFF" 
+    android:textColorLink="#FFFFFF"
+    android:layout_margin="5px"></TextView>
+</ScrollView>      
+    <Button
+        android:id="@+id/upgrade_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:padding="20sp"
+        android:onClick="upgradeClicked"
+        android:text="" />
+</LinearLayout>
+  
